@@ -45,7 +45,19 @@ Plain Markdown files · wikilinks & backlinks · live graph · teams without los
 
 ## Quick start
 
-### Docker (recommended)
+### Docker — one command, nothing to clone (recommended)
+
+```bash
+docker run -d --name vaultfree --restart unless-stopped \
+  -p 127.0.0.1:3000:3000 -v vaultfree-data:/data \
+  ghcr.io/pedrodva/vaultfree:latest
+```
+
+Open <http://localhost:3000> and create the first account — it becomes the administrator. A "Welcome" vault with linked starter notes is created for you. Data lives in the `vaultfree-data` Docker volume. Update with `docker pull ghcr.io/pedrodva/vaultfree:latest` and recreate the container; your data stays in the volume.
+
+By default only your own computer can reach it (`127.0.0.1`), so it is safe to try. To open it to your network use `-p 3000:3000` instead.
+
+### Docker Compose (team server, HTTPS, options)
 
 ```bash
 git clone https://github.com/Pedrodva/vaultfree.git
@@ -53,9 +65,7 @@ cd vaultfree
 docker compose up -d
 ```
 
-Open <http://localhost:3000> and create the first account — it becomes the administrator. A "Welcome" vault with linked starter notes is created for you. Data lives in the `vaultfree-data` Docker volume.
-
-By default only your own computer can reach it, so it is safe to try. Update with `git pull && docker compose up -d --build`.
+Compose builds the image from source and unlocks the `.env` options below (domain with automatic HTTPS, LAN access, tunnels). Update with `git pull && docker compose up -d --build`.
 
 ### Without Docker
 
