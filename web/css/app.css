@@ -40,7 +40,7 @@ select.input { width: auto; }
 .err { color: var(--danger); font-size: 13px; min-height: 18px; }
 
 /* layout */
-.ws { display: grid; grid-template-columns: 44px var(--sb, 270px) 1fr var(--rb, 300px); height: 100vh; }
+.ws { position: relative; display: grid; grid-template-columns: 44px var(--sb, 270px) 1fr var(--rb, 300px); height: 100vh; }
 .ribbon { background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 8px 0; gap: 4px; }
 .ribbon .grow { flex: 1; }
 .ribbon .icon-btn { font-size: 17px; width: 34px; height: 34px; }
@@ -118,11 +118,19 @@ a.tag { background: var(--accent-bg); border-radius: 10px; padding: 0 7px; text-
 /* graph view */
 .graph-wrap { flex: 1; position: relative; min-height: 0; }
 .graph-wrap canvas { display: block; }
-.graph-panel { position: absolute; top: 10px; right: 10px; width: 260px; max-height: calc(100% - 20px); overflow: auto; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px 10px; box-shadow: 0 4px 24px #0006; }
+.ws.no-sb { --sb: 0px !important; } .ws.no-rb { --rb: 0px !important; }
+.ws.no-sb .sidebar, .ws.no-rb .rightbar { visibility: hidden; overflow: hidden; border: 0; }
+.rs { position: absolute; top: 0; bottom: 0; width: 7px; cursor: col-resize; z-index: 6; }
+.rs:hover, .rs.active { background: var(--accent); opacity: .45; }
+.rs-left { left: calc(44px + var(--sb, 270px) - 3px); } .rs-right { right: calc(var(--rb, 300px) - 3px); }
+.graph-panel { position: absolute; top: 10px; right: 10px; width: 210px; max-height: calc(100% - 20px); overflow: auto; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 2px 8px 6px; box-shadow: 0 4px 24px #0006; font-size: 12px; }
+.graph-panel.collapsed { width: auto; padding: 2px; overflow: visible; } .graph-panel.collapsed .gp-body, .graph-panel.collapsed .gp-label { display: none; }
+.gp-toggle { width: 100%; text-align: left; font-size: 13px; } .graph-panel.collapsed .gp-toggle { width: auto; }
 .graph-panel details { border-bottom: 1px solid var(--border); padding: 4px 0; } .graph-panel details:last-child { border: 0; }
 .graph-panel summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
-.graph-panel label { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 3px 0; font-size: 13px; }
-.graph-panel input[type=range] { width: 120px; accent-color: var(--accent); }
+.graph-panel label { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 0; font-size: 12px; }
+.graph-panel input[type=range] { width: 90px; accent-color: var(--accent); }
+.graph-panel summary { font-size: 12px; }
 .graph-stats { position: absolute; left: 12px; bottom: 10px; color: var(--muted); font-size: 12px; pointer-events: none; }
 .group-row { display: flex; gap: 6px; margin: 4px 0; } .group-row input[type=color] { width: 34px; padding: 0; border: 0; background: none; }
 

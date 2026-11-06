@@ -118,6 +118,8 @@ function buildShell() {
   R.main = h('main', { class: 'main' });
   R.right = h('aside', { class: 'rightbar' });
   R.ribbon = h('nav', { class: 'ribbon' },
+    btn('◧', t('Toggle file panel'), () => togglePanel('left')),
+    btn('◨', t('Toggle side panel'), () => togglePanel('right')),
     btn('📁', t('Files'), () => { S.sbTab = 'files'; renderSidebar(); }),
     btn('🔍', t('Search (Ctrl+Shift+F)'), () => { S.sbTab = 'search'; renderSidebar(); $('#search-input')?.focus(); }),
     btn('🕸', t('Graph view (Ctrl+G)'), toggleGraph),
@@ -131,7 +133,44 @@ function buildShell() {
     btn('🌓', t('Toggle theme'), toggleTheme),
     btn(lang === 'es' ? 'EN' : 'ES', t('Language') + ': ' + (lang === 'es' ? 'English' : 'Español'), async () => { await saveNow(); setLang(lang === 'es' ? 'en' : 'es'); location.reload(); }),
     btn('⏻', tf.signOut(S.user.username), logout));
-  $('#app').replaceChildren(h('div', { class: 'ws', id: 'ws' }, R.ribbon, R.sidebar, R.main, R.right));
+  const ws = h('div', { class: 'ws', id: 'ws' }, R.ribbon, R.sidebar, R.main, R.right,
+    h('div', { class: 'rs rs-left', title: t('Drag to resize') }), h('div', { class: 'rs rs-right', title: t('Drag to resize') }));
+  $('#app').replaceChildren(ws);
+  applyPanels(ws);
+  wireResizers(ws);
+}
+
+// Side panels: resizable (drag the edge, double-click to reset) and collapsible; sizes are remembered.
+function applyPanels(ws = $('#ws')) {
+  ws.style.setProperty('--sb', ls('sbw', 270) + 'px');
+  ws.style.setProperty('--rb', ls('rbw', 300) + 'px');
+  ws.classList.toggle('no-sb', !!ls('sbHidden', false));
+  ws.classList.toggle('no-rb', !!ls('rbHidden', false));
+}
+function togglePanel(which) {
+  const k = which === 'left' ? 'sbHidden' : 'rbHidden';
+  lsSet(k, !ls(k, false));
+  applyPanels();
+}
+function wireResizers(ws) {
+  for (const side of ['left', 'right']) {
+    const el = $('.rs-' + side, ws);
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      el.setPointerCapture(e.pointerId);
+      el.classList.add('active');
+      const move = (ev) => {
+        const r = ws.getBoundingClientRect();
+        if (side === 'left') { lsSet('sbw', Math.round(Math.min(520, Math.max(150, ev.clientX - r.left - 44)))); lsSet('sbHidden', false); }
+        else { lsSet('rbw', Math.round(Math.min(560, Math.max(180, r.right - ev.clientX)))); lsSet('rbHidden', false); }
+        applyPanels(ws);
+      };
+      const up = () => { el.classList.remove('active'); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); };
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerup', up);
+    });
+    el.addEventListener('dblclick', () => { lsSet(side === 'left' ? 'sbw' : 'rbw', side === 'left' ? 270 : 300); applyPanels(ws); });
+  }
 }
 
 function toggleTheme() {
@@ -815,11 +854,17 @@ function graphPanel(gv) {
   const q = h('input', { class: 'input', placeholder: t('Search files…'), value: g.q, oninput: debounce((e) => { g.q = e.target.value; save(); loadGraph(gv); }, 250) });
   const tagSel = h('select', { class: 'input', style: { width: '100%' }, onchange: (e) => { g.tag = e.target.value; save(); loadGraph(gv); } },
     h('option', { value: '' }, t('All tags')), S.tags.map((t) => h('option', { value: t.tag, selected: g.tag === t.tag }, '#' + t.tag)));
-  return h('div', { class: 'graph-panel' },
-    h('details', { open: true }, h('summary', {}, t('Filters')), q, tagSel, check(t('Tags'), 'tags', true), check(t('Orphans'), 'orphans', true), check(t('Unresolved links'), 'unresolved', true)),
+  const sections = [
+    h('details', {}, h('summary', {}, t('Filters')), q, tagSel, check(t('Tags'), 'tags', true), check(t('Orphans'), 'orphans', true), check(t('Unresolved links'), 'unresolved', true)),
     h('details', {}, h('summary', {}, t('Groups')), h('label', {}, t('Color by folder'), h('input', { type: 'checkbox', checked: g.colorBy === 'folder', onchange: (e) => { g.colorBy = e.target.checked ? 'folder' : 'none'; gv.setOptions({ colorBy: g.colorBy }, false); gv.recolor(); save(); } })), groupsBox),
     h('details', {}, h('summary', {}, t('Display')), h('label', {}, t('Style'), h('select', { class: 'input', onchange: (e) => { g.style = e.target.value; gv.setOptions({ style: g.style }, false); S.local?.setOptions({ style: g.style }, false); save(); } }, h('option', { value: 'constellation', selected: g.style !== 'classic' }, t('Constellation')), h('option', { value: 'classic', selected: g.style === 'classic' }, t('Classic')))), check(t('Arrows'), 'arrows'), range(t('Text fade'), 'textFade', 0, 1.5, 0.05), range(t('Node size'), 'nodeSize', 0.4, 3, 0.05), range(t('Link thickness'), 'linkThickness', 0.3, 4, 0.1)),
-    h('details', {}, h('summary', {}, t('Forces')), range(t('Center force'), 'centerForce', 0, 1, 0.01), range(t('Repel force'), 'repelForce', 0, 4, 0.05), range(t('Link force'), 'linkForce', 0, 3, 0.05), range(t('Link distance'), 'linkDistance', 20, 250, 1)));
+    h('details', {}, h('summary', {}, t('Forces')), range(t('Center force'), 'centerForce', 0, 1, 0.01), range(t('Repel force'), 'repelForce', 0, 4, 0.05), range(t('Link force'), 'linkForce', 0, 3, 0.05), range(t('Link distance'), 'linkDistance', 20, 250, 1)),
+  ];
+  const panel = h('div', { class: 'graph-panel' + (ls('gpOpen', false) ? '' : ' collapsed') });
+  const toggle = h('button', { class: 'icon-btn gp-toggle', title: t('Graph settings'), 'aria-label': t('Graph settings'),
+    onclick: () => { const c = panel.classList.toggle('collapsed'); lsSet('gpOpen', !c); } }, '⚙', h('span', { class: 'gp-label' }, ' ' + t('Settings')));
+  panel.append(toggle, h('div', { class: 'gp-body' }, ...sections));
+  return panel;
 }
 
 // ───────────────────────── dialogs ─────────────────────────
@@ -966,6 +1011,8 @@ async function adminDialog() {
 function commands() {
   const c = [
     { label: t('Create new note'), run: () => newNote() },
+    { label: t('Toggle file panel'), run: () => togglePanel('left') },
+    { label: t('Toggle side panel'), run: () => togglePanel('right') },
     { label: t('New folder'), run: () => newFolder() },
     ...(S.cur ? [{ label: t('Move note to folder…'), run: moveCurrentDialog }] : []),
     { label: t('Open daily note'), run: dailyNote },
