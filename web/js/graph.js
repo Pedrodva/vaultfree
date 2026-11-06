@@ -2,8 +2,8 @@
 // zoom/pan/drag, hover-highlight of neighbours, groups, filters. No dependencies.
 
 const DEFAULTS = {
-  centerForce: 0.12, repelForce: 1, linkForce: 1, linkDistance: 60,
-  nodeSize: 1, linkThickness: 1, textFade: 0.8, arrows: false, colorBy: 'folder', groups: [],
+  centerForce: 0.07, repelForce: 2, linkForce: 1, linkDistance: 95,
+  nodeSize: 1, linkThickness: 1, textFade: 0.8, arrows: false, colorBy: 'folder', groups: [], style: 'constellation',
 };
 
 const PALETTE = ['#a88bfa', '#5eead4', '#f59e0b', '#f472b6', '#60a5fa', '#a3e635', '#fb7185', '#38bdf8', '#e879f9', '#facc15'];
@@ -65,6 +65,7 @@ export class GraphView {
     const deg = new Map();
     for (const l of this.links) { deg.set(l.s, (deg.get(l.s) || 0) + 1); deg.set(l.t, (deg.get(l.t) || 0) + 1); }
     this.deg = deg;
+    this._markHubs();
     this.adj = new Map(this.nodes.map((n) => [n, new Set()]));
     for (const l of this.links) { this.adj.get(l.s).add(l.t); this.adj.get(l.t).add(l.s); }
     this.readTheme();
@@ -101,9 +102,17 @@ export class GraphView {
 
   reheat(a = 0.6) { this.alpha = Math.max(this.alpha, a); }
 
+  /** Hubs = the best-connected notes (top ~15%, at least 3 links). Constellation labels and halos them. */
+  _markHubs() {
+    const degs = this.nodes.map((n) => this.deg.get(n) || 0).sort((a, b) => b - a);
+    const cut = Math.max(3, degs[Math.min(degs.length - 1, Math.floor(degs.length * 0.15))] || 0);
+    for (const n of this.nodes) n.hub = (this.deg.get(n) || 0) >= cut && n.type === 'note';
+  }
+
   radius(n) {
     const d = this.deg?.get(n) || 0;
-    return (3 + Math.sqrt(d) * 2.1) * this.opt.nodeSize * (n.type === 'unresolved' ? 0.8 : 1);
+    const base = this.opt.style === 'classic' ? 3 + Math.sqrt(d) * 2.1 : 1.8 + Math.sqrt(d) * 1.35;
+    return base * this.opt.nodeSize * (n.type === 'unresolved' ? 0.8 : 1);
   }
 
   // ---------- simulation ----------
@@ -184,7 +193,7 @@ export class GraphView {
     const w = this.w, h = this.h;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const n of this.nodes) { minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x); minY = Math.min(minY, n.y); maxY = Math.max(maxY, n.y); }
-    const k = Math.min(w / (maxX - minX + 120), h / (maxY - minY + 120), 2.5);
+    const k = Math.min(w / (maxX - minX + 90), h / (maxY - minY + 90), 3);
     this.view = { k: isFinite(k) && k > 0 ? k : 1, x: -((minX + maxX) / 2) * k, y: -((minY + maxY) / 2) * k };
     this.dirty = true;
   }
@@ -196,6 +205,7 @@ export class GraphView {
     this.canvas.width = this.w * dpr; this.canvas.height = this.h * dpr;
     this.canvas.style.width = this.w + 'px'; this.canvas.style.height = this.h + 'px';
     this.dpr = dpr; this.dirty = true;
+    if (this.autoFit && this.nodes?.length) this.fit(false);
   }
 
   toWorld(px, py) { return { x: (px - this.w / 2 - this.view.x) / this.view.k, y: (py - this.h / 2 - this.view.y) / this.view.k }; }
@@ -274,15 +284,18 @@ export class GraphView {
     const isLit = (n) => !hov || n === hov || hl.has(n);
 
     // links
-    const lw = Math.max(0.6, opt.linkThickness) / Math.sqrt(view.k + 0.3);
+    const constel = opt.style !== 'classic';
+    const lw = (constel ? Math.max(0.35, opt.linkThickness * 0.5) : Math.max(0.6, opt.linkThickness)) / Math.sqrt(view.k + 0.3);
     ctx.lineWidth = lw;
     ctx.strokeStyle = hov ? C.dim : C.link;
+    ctx.globalAlpha = constel && !hov ? 0.7 : 1;
     ctx.beginPath();
     for (const l of this.links) {
       if (hov && (l.s === hov || l.t === hov)) continue;
       ctx.moveTo(l.s.x, l.s.y); ctx.lineTo(l.t.x, l.t.y);
     }
     ctx.stroke();
+    ctx.globalAlpha = 1;
     if (hov) {
       ctx.strokeStyle = C.accent; ctx.lineWidth = lw * 1.4;
       ctx.beginPath();
@@ -301,12 +314,17 @@ export class GraphView {
     // nodes
     for (const n of this.nodes) {
       const r = this.radius(n);
+      if (constel && (n.hub || n.id === this.current || n === hov)) { // soft halo, like a bright star
+        ctx.globalAlpha = isLit(n) ? 0.16 : 0.04;
+        ctx.beginPath(); ctx.arc(n.x, n.y, r * 2.4, 0, Math.PI * 2);
+        ctx.fillStyle = n.id === this.current ? C.accent : n.color || C.node; ctx.fill();
+      }
       ctx.globalAlpha = isLit(n) ? 1 : 0.18;
       ctx.beginPath();
       ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
       ctx.fillStyle = n.id === this.current ? C.accent : n.color || C.node;
       ctx.fill();
-      if (n.id === this.current || n === hov) { ctx.lineWidth = 2 / view.k; ctx.strokeStyle = C.accent; ctx.stroke(); }
+      if (n.id === this.current || n === hov) { ctx.lineWidth = (constel ? 1.2 : 2) / view.k; ctx.strokeStyle = C.accent; ctx.stroke(); }
     }
     ctx.globalAlpha = 1;
 
@@ -314,12 +332,15 @@ export class GraphView {
     const fade = Math.max(0, Math.min(1, (view.k - (1.2 - opt.textFade)) * 1.6));
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    const fs = 12 / Math.max(view.k, 0.55);
+    const fs = (constel ? 11 : 12) / Math.max(view.k, 0.55);
+    const fadeSmall = Math.max(0, Math.min(1, (view.k - (2.4 - opt.textFade * 1.2)) * 1.4));
+    const fadeHub = Math.min(1, 0.6 + view.k * 0.4);
     ctx.font = `${fs}px system-ui, sans-serif`;
     for (const n of this.nodes) {
       const lit = isLit(n);
       const emphasized = n === hov || n.id === this.current || (hov && hl.has(n));
-      const alpha = emphasized ? 1 : lit ? fade * (n.type === 'unresolved' ? 0.6 : 0.85) : 0;
+      const base = constel ? (n.hub ? fadeHub : fadeSmall) : fade;
+      const alpha = emphasized ? 1 : lit ? base * (n.type === 'unresolved' ? 0.6 : constel ? 0.95 : 0.85) : 0;
       if (alpha < 0.05) continue;
       ctx.globalAlpha = alpha;
       ctx.fillStyle = C.text;

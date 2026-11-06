@@ -6,7 +6,7 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ### Added
 - Markdown vaults stored as plain files; wikilinks, embeds, nested tags, frontmatter, backlinks, rename with link rewriting
-- Obsidian-style graph view (hover highlight, zoom/pan/drag, filters, groups, forces) and a local graph per note
+- Graph view in a "Constellation" style (small stars, halos and labels on hubs; classic style optional) with hover highlight, zoom/pan/drag, filters, groups, forces, auto-fit, and a local graph per note
 - Nested folders (including empty ones) with drag & drop, rename/move and delete
 - Multi-user: accounts, roles (viewer/editor/owner), live updates, presence, version history with restore
 - Three-way merge on save, so concurrent edits are never overwritten

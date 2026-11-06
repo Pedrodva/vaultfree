@@ -34,7 +34,7 @@ Plain Markdown files · wikilinks & backlinks · live graph · teams without los
 | | |
 |---|---|
 | **Notes** | Obsidian-compatible Markdown: `[[wikilinks]]`, `[[Note#Heading\|alias]]`, `![[embeds]]`, nested `#tags`, frontmatter, callouts, task lists, tables, backlinks, rename-with-link-update |
-| **Graph view** | Force-directed canvas: hover to highlight neighbours, zoom/pan/drag, filters (search, tags, orphans, unresolved), colour groups, force & display sliders, local graph per note |
+| **Graph view** | Constellation-style force-directed canvas (classic style optional): hover to highlight neighbours, zoom/pan/drag, filters (search, tags, orphans, unresolved), colour groups, force & display sliders, local graph per note |
 | **Folders** | Nested folders, empty folders, drag & drop notes and folders, rename/move with automatic link updates |
 | **Teamwork** | Roles (viewer / editor / owner), live updates (SSE), presence avatars, full version history with restore |
 | **No lost edits** | Every save carries the revision it started from; stale saves are three-way merged, real conflicts are shown, never overwritten |

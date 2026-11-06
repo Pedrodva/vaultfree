@@ -13,8 +13,8 @@ const S = {
   user: null, canCreate: true, vaults: [], vault: null, notes: [], files: [], resolve: () => null, tags: [],
   cur: null, view: 'note', mode: ls('mode', 'split'), sbTab: 'files', rbTab: ls('rb', 'links'),
   presence: [], collapsed: new Set(ls('collapsed', [])), es: null, gv: null, local: null, searchQ: '',
-  gs: Object.assign({ q: '', tag: '', orphans: true, unresolved: false, tags: false, arrows: false, textFade: 0.8, nodeSize: 1,
-    linkThickness: 1, centerForce: 0.12, repelForce: 1, linkForce: 1, linkDistance: 60, groups: [], colorBy: 'folder', depth: 1 }, ls('graph', {})),
+  gs: Object.assign({ q: '', tag: '', orphans: true, unresolved: false, tags: false, arrows: false, style: 'constellation', textFade: 0.8, nodeSize: 1,
+    linkThickness: 1, centerForce: 0.07, repelForce: 2, linkForce: 1, linkDistance: 95, groups: [], colorBy: 'folder', depth: 1 }, ls('graph', {})),
 };
 const V = () => S.vault.id;
 const API = (p = '') => `/api/vaults/${V()}${p}`;
@@ -818,7 +818,7 @@ function graphPanel(gv) {
   return h('div', { class: 'graph-panel' },
     h('details', { open: true }, h('summary', {}, t('Filters')), q, tagSel, check(t('Tags'), 'tags', true), check(t('Orphans'), 'orphans', true), check(t('Unresolved links'), 'unresolved', true)),
     h('details', {}, h('summary', {}, t('Groups')), h('label', {}, t('Color by folder'), h('input', { type: 'checkbox', checked: g.colorBy === 'folder', onchange: (e) => { g.colorBy = e.target.checked ? 'folder' : 'none'; gv.setOptions({ colorBy: g.colorBy }, false); gv.recolor(); save(); } })), groupsBox),
-    h('details', {}, h('summary', {}, t('Display')), check(t('Arrows'), 'arrows'), range(t('Text fade'), 'textFade', 0, 1.5, 0.05), range(t('Node size'), 'nodeSize', 0.4, 3, 0.05), range(t('Link thickness'), 'linkThickness', 0.3, 4, 0.1)),
+    h('details', {}, h('summary', {}, t('Display')), h('label', {}, t('Style'), h('select', { class: 'input', onchange: (e) => { g.style = e.target.value; gv.setOptions({ style: g.style }, false); S.local?.setOptions({ style: g.style }, false); save(); } }, h('option', { value: 'constellation', selected: g.style !== 'classic' }, t('Constellation')), h('option', { value: 'classic', selected: g.style === 'classic' }, t('Classic')))), check(t('Arrows'), 'arrows'), range(t('Text fade'), 'textFade', 0, 1.5, 0.05), range(t('Node size'), 'nodeSize', 0.4, 3, 0.05), range(t('Link thickness'), 'linkThickness', 0.3, 4, 0.1)),
     h('details', {}, h('summary', {}, t('Forces')), range(t('Center force'), 'centerForce', 0, 1, 0.01), range(t('Repel force'), 'repelForce', 0, 4, 0.05), range(t('Link force'), 'linkForce', 0, 3, 0.05), range(t('Link distance'), 'linkDistance', 20, 250, 1)));
 }
 
