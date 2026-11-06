@@ -1,0 +1,20 @@
+{
+  "name": "vaultfree",
+  "version": "0.1.0",
+  "description": "VaultFree — open-source, self-hosted, multi-user knowledge base with an Obsidian-style graph view and first-class AI integration (REST + MCP).",
+  "type": "module",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/OWNER/vaultfree.git" },
+  "bugs": { "url": "https://github.com/OWNER/vaultfree/issues" },
+  "homepage": "https://github.com/OWNER/vaultfree#readme",
+  "bin": { "vaultfree": "bin/vaultfree.js" },
+  "scripts": {
+    "start": "node bin/vaultfree.js serve",
+    "dev": "node --watch bin/vaultfree.js serve",
+    "test": "node --test",
+    "verify": "node bin/vaultfree.js verify"
+  },
+  "engines": { "node": ">=20" },
+  "keywords": ["obsidian", "markdown", "knowledge-graph", "notes", "mcp", "ai", "self-hosted", "zero-dependencies"],
+  "files": ["bin", "server", "shared", "web", "docs", "README.md", "LICENSE"]
+}

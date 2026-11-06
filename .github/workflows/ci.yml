@@ -1,0 +1,29 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ matrix.node }}" }
+      - run: npm test
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image and smoke-test it
+        run: |
+          docker build -t vaultfree:ci .
+          docker run -d --name vf -p 3000:3000 vaultfree:ci
+          for i in $(seq 1 20); do curl -fs http://127.0.0.1:3000/api/health && exit 0; sleep 1; done
+          docker logs vf; exit 1

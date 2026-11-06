@@ -1,0 +1,39 @@
+# VaultFree — `docker compose up -d`
+#
+# SOLO (default)   reachable only from this computer: http://localhost:3000
+# ONLINE (easy)    inside the app (admin): 🔗 Invite & share -> "Share online" gives a public HTTPS link
+# TEAM SERVER      set VAULTFREE_DOMAIN in .env, point your DNS at this machine, then:
+#                  docker compose --profile https up -d      (automatic HTTPS via Caddy)
+# LAN only         set VAULTFREE_BIND=0.0.0.0 in .env
+services:
+  vaultfree:
+    build: .
+    # image: ghcr.io/OWNER/vaultfree:latest   # use the published image instead of building
+    ports:
+      - "${VAULTFREE_BIND:-127.0.0.1}:${VAULTFREE_PORT:-3000}:3000"
+    volumes:
+      - vaultfree-data:/data          # notes, history, users. Back this volume up.
+    environment:
+      VAULTFREE_PUBLIC_URL: ${VAULTFREE_DOMAIN:+https://}${VAULTFREE_DOMAIN:-}
+      VAULTFREE_TUNNEL_TOKEN: ${VAULTFREE_TUNNEL_TOKEN:-}
+      VAULTFREE_ALLOW_SIGNUP: ${VAULTFREE_ALLOW_SIGNUP:-false}
+      VAULTFREE_USERS_CAN_CREATE_VAULTS: ${VAULTFREE_USERS_CAN_CREATE_VAULTS:-true}
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["https"]
+    ports: ["80:80", "443:443"]
+    environment:
+      VAULTFREE_DOMAIN: ${VAULTFREE_DOMAIN:-localhost}   # set in .env for a real domain
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [vaultfree]
+    restart: unless-stopped
+
+volumes:
+  vaultfree-data:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,6 @@
+# Automatic HTTPS (Let's Encrypt) for your own domain. Used by `docker compose --profile https up -d`
+{$VAULTFREE_DOMAIN} {
+	reverse_proxy vaultfree:3000 {
+		flush_interval -1
+	}
+}
