@@ -15,3 +15,5 @@ All notable changes to this project are documented here. Format based on [Keep a
 - Integrity: content-addressed history, hash-chained audit log, `vaultfree verify`
 - Docker image and compose file (solo, LAN, automatic HTTPS with Caddy, optional Cloudflare tunnels)
 - English and Spanish interface
+- Edits made outside VaultFree (Obsidian, git) are detected and merged instead of overwritten; read-only tokens work with the MCP endpoint
+- Regression tests for XSS in the Markdown renderer

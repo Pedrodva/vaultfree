@@ -122,7 +122,7 @@ data/
     └── .vaultfree/              history (by hash), trash, audit log, settings
 ```
 
-In Docker this is the `vaultfree-data` volume. Back it up by copying it. `vaultfree verify` checks every note, every stored version and the audit chain.
+You can edit the folder with Obsidian or git while VaultFree runs: outside changes are detected and merged, never overwritten. In Docker this is the `vaultfree-data` volume; back it up by copying it. `vaultfree verify` checks every note, every stored version and the audit chain.
 
 ## Security
 

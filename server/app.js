@@ -343,7 +343,7 @@ export async function createApp(config) {
           let ok = false;
           try { ok = !!origin && new URL(origin).host === req.headers.host; } catch { /* bad origin */ }
           if (!ok) throw new VaultFreeError(403, 'csrf', 'Cross-origin request blocked');
-        } else if (!a.scopes.includes('write')) throw new VaultFreeError(403, 'forbidden', 'Token lacks write scope');
+        } else if (!a.scopes.includes('write') && url.pathname !== '/mcp') throw new VaultFreeError(403, 'forbidden', 'Token lacks write scope'); // /mcp enforces scopes per tool call via the REST API
       }
       const ctx = {
         req, res, auth: a, params: m.params, query: url.searchParams, body: {},
@@ -361,6 +361,7 @@ export async function createApp(config) {
     }
   });
 
+  const closeVaults = () => [...vaults.vaults.values()].forEach((v) => v.close());
   const flushAll = () => Promise.all([...vaults.vaults.values()].map((v) => v.audit.flush()));
   return {
     server, auth, vaults, config,
@@ -369,6 +370,7 @@ export async function createApp(config) {
       r(server.address());
     })),
     close: async () => {
-      tunnel.stop(); server.closeAllConnections?.(); await new Promise((r) => server.close(r)); await flushAll(); await auth.queue; },
+      tunnel.stop();
+      closeVaults(); server.closeAllConnections?.(); await new Promise((r) => server.close(r)); await flushAll(); await auth.queue; },
   };
 }

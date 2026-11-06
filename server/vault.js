@@ -60,6 +60,7 @@ export class Vault extends EventEmitter {
       }
     };
     await walk(this.root, '');
+    this.watch();
     return this;
   }
 
@@ -103,6 +104,7 @@ export class Vault extends EventEmitter {
   // ---- reads ----
   async read(rawPath) {
     const p = normalizePath(rawPath);
+    await this.locks.run(p, () => this._sync(p));
     const m = this.index.notes.get(p);
     if (!m) throw new VaultFreeError(404, 'not_found', `Note not found: ${p}`);
     return { ...this.index.details(p), content: m.content };
@@ -114,6 +116,7 @@ export class Vault extends EventEmitter {
     if (typeof content !== 'string') throw new VaultFreeError(400, 'invalid_content', 'content must be a string');
     if (Buffer.byteLength(content) > MAX_NOTE_BYTES) throw new VaultFreeError(413, 'too_large', 'Note exceeds 2 MB');
     return this.locks.run(p, async () => {
+      await this._sync(p);
       const cur = this.index.notes.get(p);
       let final = content, merged = false;
       if (cur) {
@@ -138,6 +141,41 @@ export class Vault extends EventEmitter {
       return { path: p, rev: sha256(final), content: final, merged, created: !cur };
     });
   }
+
+  /** Reconcile one note with the disk (edits made by Obsidian, git, a sync tool…). Call inside the path lock. */
+  async _sync(p) {
+    let disk = null;
+    try { disk = await fsp.readFile(this.abs(p), 'utf8'); } catch { /* missing */ }
+    const cur = this.index.notes.get(p);
+    if (disk == null) {
+      if (cur) { this.index.remove(p); await this.logHistory(p, { rev: cur.rev, user: 'external', op: 'delete' }); this.audit.append({ user: 'external', action: 'delete', path: p, rev: cur.rev }); this.emit('change', { type: 'delete', path: p, user: 'external' }); }
+      return;
+    }
+    const rev = sha256(disk);
+    if (cur && cur.rev === rev) return;
+    await this.putObject(rev, disk);
+    this.index.set(p, { content: disk, rev, mtime: Date.now() });
+    this._addFolders(p);
+    await this.logHistory(p, { rev, user: 'external', op: 'external' });
+    this.audit.append({ user: 'external', action: 'external', path: p, rev });
+    this.emit('change', { type: 'write', path: p, rev, user: 'external', op: 'external' });
+  }
+
+  /** Pick up changes made outside VaultFree while the server runs (best effort; operations also re-sync on demand). */
+  watch() {
+    try {
+      const timers = new Map();
+      this.watcher = fs.watch(this.root, { recursive: true, persistent: false }, (_evt, filename) => {
+        if (!filename) return;
+        const rel = String(filename).replace(/\\/g, '/');
+        if (rel.split('/').some((s) => s.startsWith('.')) || !/\.md$/i.test(rel)) return;
+        clearTimeout(timers.get(rel));
+        timers.set(rel, setTimeout(() => { timers.delete(rel); this.locks.run(rel, () => this._sync(rel)).catch(() => {}); }, 200));
+      });
+      this.watcher.on('error', () => {});
+    } catch { /* recursive watching unsupported: on-demand sync still protects writes */ }
+  }
+  close() { this.watcher?.close(); }
 
   _addFolders(p, isFolder = false) {
     const parts = p.split('/');
@@ -213,6 +251,7 @@ export class Vault extends EventEmitter {
   async append(rawPath, text, { user = 'system', createIfMissing = true } = {}) {
     const p = normalizePath(rawPath);
     return this.locks.run(p, async () => {
+      await this._sync(p);
       const cur = this.index.notes.get(p);
       if (!cur && !createIfMissing) throw new VaultFreeError(404, 'not_found', `Note not found: ${p}`);
       const prev = cur ? cur.content : '';
@@ -227,6 +266,7 @@ export class Vault extends EventEmitter {
   async delete(rawPath, { baseRev = null, user = 'system' } = {}) {
     const p = normalizePath(rawPath);
     return this.locks.run(p, async () => {
+      await this._sync(p);
       const cur = this.index.notes.get(p);
       if (!cur) throw new VaultFreeError(404, 'not_found', `Note not found: ${p}`);
       if (baseRev && baseRev !== cur.rev) throw new VaultFreeError(409, 'conflict', 'Note changed since you read it.', { current: { rev: cur.rev, content: cur.content } });
@@ -254,6 +294,7 @@ export class Vault extends EventEmitter {
     if (from === to) return { from, to, updated: [] };
     const [a, b] = [from, to].sort();
     return this.locks.run(a, () => this.locks.run(b, async () => {
+      await this._sync(from);
       if (!this.index.notes.has(from)) throw new VaultFreeError(404, 'not_found', `Note not found: ${from}`);
       if (this.index.notes.has(to)) throw new VaultFreeError(409, 'exists', `Target already exists: ${to}`);
       const oldResolve = this.index.resolver();

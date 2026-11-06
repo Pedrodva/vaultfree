@@ -54,5 +54,5 @@ Set `VAULTFREE_TRUST_PROXY=1` and `VAULTFREE_SECURE_COOKIES=1`. SSE needs respon
 ## Operations
 - `vaultfree verify` — checks every note against its hash, every history object, and the audit chain.
 - `vaultfree user add alice --admin` / `user passwd alice` — manage accounts from the shell.
-- A vault folder can be edited with Obsidian or git; VaultFree notices changes on restart.
+- A vault folder can be edited with Obsidian, git or a sync tool while the server runs: changes are picked up automatically (and re-checked before every save, so they are merged, never overwritten).
 - Single-process design: run one instance per data directory.
