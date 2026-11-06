@@ -6,7 +6,7 @@
 
 Plain Markdown files · wikilinks & backlinks · live graph · teams without lost edits · REST + MCP for AI agents
 
-[![CI](https://github.com/OWNER/vaultfree/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/vaultfree/actions/workflows/ci.yml)
+[![CI](https://github.com/Pedrodva/vaultfree/actions/workflows/ci.yml/badge.svg)](https://github.com/Pedrodva/vaultfree/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Node 20+](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![Dependencies: 0](https://img.shields.io/badge/runtime%20dependencies-0-brightgreen)
@@ -48,7 +48,7 @@ Plain Markdown files · wikilinks & backlinks · live graph · teams without los
 ### Docker (recommended)
 
 ```bash
-git clone https://github.com/OWNER/vaultfree.git
+git clone https://github.com/Pedrodva/vaultfree.git
 cd vaultfree
 docker compose up -d
 ```
@@ -60,7 +60,7 @@ By default only your own computer can reach it, so it is safe to try. Update wit
 ### Without Docker
 
 ```bash
-git clone https://github.com/OWNER/vaultfree.git && cd vaultfree
+git clone https://github.com/Pedrodva/vaultfree.git && cd vaultfree
 npm start            # http://127.0.0.1:3000 — Node.js 20+, nothing to install
 ```
 
