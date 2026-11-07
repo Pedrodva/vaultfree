@@ -5,6 +5,7 @@ import { t, tf, lang, setLang } from './i18n.js';
 const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
 import { GraphView } from './graph.js';
 import { createResolver } from '/shared/resolve.js';
+import { ATTACHMENT_EXT, extOf } from '/shared/parse.js';
 import { merge3, diffLines } from '/shared/merge.js';
 
 const ls = (k, d) => { try { return JSON.parse(localStorage.getItem('vf.' + k)) ?? d; } catch { return d; } };
@@ -267,7 +268,7 @@ function renderSidebar() {
   const tab = (id, label) => h('button', { class: S.sbTab === id ? 'active' : '', onclick: () => { S.sbTab = id; renderSidebar(); } }, label);
   R.sbBody = h('div', { class: 'sb-body' });
   R.sidebar.replaceChildren(
-    h('div', { class: 'sb-head' }, h('div', { class: 'vault-switch' }, vsel, h('button', { class: 'btn', title: t('New note'), onclick: () => newNote() }, '＋'), canEdit() && h('button', { class: 'btn', title: t('New folder'), onclick: () => newFolder() }, '📁'))),
+    h('div', { class: 'sb-head' }, h('div', { class: 'vault-switch' }, vsel, h('button', { class: 'btn', title: t('New note'), onclick: () => newNote() }, '＋'), canEdit() && h('button', { class: 'btn', title: t('New folder'), onclick: () => newFolder() }, '📁'), canEdit() && h('button', { class: 'btn', title: t('Import files'), onclick: importDialog }, '⬆'))),
     h('div', { class: 'sb-tabs' }, tab('files', t('Files')), tab('search', t('Search')), tab('tags', t('Tags'))), R.sbBody);
   if (S.sbTab === 'files') renderTree();
   else if (S.sbTab === 'search') renderSearch();
@@ -291,12 +292,13 @@ function buildTree() {
 
 const canEdit = () => S.vault.role !== 'viewer';
 const dropOn = (folder) => ({
-  dragover: (e) => { if (canEdit() && [...e.dataTransfer.types].some((x) => x.startsWith('text/vf-'))) { e.preventDefault(); e.currentTarget.classList.add('drop'); } },
+  dragover: (e) => { if (canEdit() && [...e.dataTransfer.types].some((x) => x.startsWith('text/vf-') || x === 'Files')) { e.preventDefault(); e.currentTarget.classList.add('drop'); } },
   dragleave: (e) => e.currentTarget.classList.remove('drop'),
   drop: (e) => {
     e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('drop');
     const note = e.dataTransfer.getData('text/vf-note'), fol = e.dataTransfer.getData('text/vf-folder');
-    if (note) moveNoteTo(note, folder); else if (fol) moveFolderTo(fol, folder);
+    if (e.dataTransfer.files?.length) importFiles(e.dataTransfer.files, folder);
+    else if (note) moveNoteTo(note, folder); else if (fol) moveFolderTo(fol, folder);
   },
 });
 const withDrop = (el, folder) => { for (const [ev, fn] of Object.entries(dropOn(folder))) el.addEventListener(ev, fn); return el; };
@@ -1226,6 +1228,49 @@ function forkDialog() {
     h('p', { class: 'muted' }, 'Creates a new vault that only you own, with a snapshot of these notes and their attachments. It stays yours even if you later lose access to the original, and it does not receive further changes.'),
     h('label', {}, t('New vault name')), name, h('label', {}, t('What to copy')), folder,
     h('div', { class: 'row end' }, go)));
+}
+
+// ── import: files, or a whole folder such as an Obsidian vault (hidden folders like .obsidian are skipped) ──
+async function importFiles(fileList, baseFolder = '') {
+  const files = [...fileList];
+  if (!files.length) return;
+  const stats = { notes: 0, files: 0, skipped: 0, failed: 0 };
+  let firstError = '';
+  const fromFolder = files.some((f) => f.webkitRelativePath);
+  const jobs = files.map((f) => {
+    const parts = (f.webkitRelativePath || f.name).split('/');
+    if (fromFolder) parts.shift(); // the picked folder itself is the vault root
+    if (!parts.length || parts.some((p) => p.startsWith('.'))) return null;
+    return { f, rel: (baseFolder ? baseFolder + '/' : '') + parts.join('/') };
+  });
+  const run = async ({ f, rel }) => {
+    try {
+      if (/\.md$/i.test(rel)) {
+        if (f.size > 2 * 1024 * 1024) throw new Error(rel + ' is larger than 2 MB');
+        try { await api('PUT', API('/notes/' + enc(rel)), { content: await f.text() }); stats.notes++; } catch (e) { if (e.code === 'base_rev_required') stats.skipped++; else throw e; }
+      } else if (ATTACHMENT_EXT.has(extOf(rel))) {
+        const res = await fetch(API('/files/' + enc(rel)), { method: 'POST', body: f, credentials: 'same-origin' });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error?.message || res.statusText);
+        stats.files++;
+      } else stats.skipped++;
+    } catch (e) { stats.failed++; firstError ||= e.message; }
+  };
+  const queue = jobs.filter(Boolean);
+  stats.skipped += jobs.length - queue.length;
+  toast(t('Importing') + ' ' + queue.length + '…');
+  await Promise.all(Array.from({ length: 4 }, async () => { while (queue.length) await run(queue.shift()); }));
+  await refreshList(true);
+  renderSidebar();
+  toast(t('Imported') + ': ' + stats.notes + ' ' + t('notes') + ', ' + stats.files + ' ' + t('files') + (stats.skipped ? ', ' + stats.skipped + ' ' + t('skipped') : '') + (stats.failed ? ', ' + stats.failed + ' ' + t('failed') + ' (' + firstError + ')' : ''), stats.failed ? 'error' : 'ok');
+}
+
+function importDialog() {
+  const pick = (opts) => { const i = h('input', { type: 'file', multiple: true, class: 'hidden', ...opts }); i.addEventListener('change', () => { m.close(); importFiles(i.files); }); document.body.append(i); i.click(); i.remove(); };
+  const m = modal(t('Import files'), h('div', { style: { display: 'grid', gap: '10px' } },
+    h('p', { class: 'muted' }, 'Add Markdown notes and attachments (images, PDF, audio, video). Existing notes are never overwritten: files whose note already exists are skipped. You can also drag files onto the file tree.'),
+    h('button', { class: 'btn primary', onclick: () => pick({ accept: '.md,.png,.jpg,.jpeg,.gif,.svg,.webp,.pdf,.mp3,.wav,.ogg,.mp4,.webm,.zip,.csv,.txt,.json' }) }, t('Choose files…')),
+    h('button', { class: 'btn', onclick: () => pick({ webkitdirectory: true }) }, t('Choose a folder…')),
+    h('p', { class: 'muted' }, 'Tip: to bring in an Obsidian vault, choose its folder. Hidden folders such as .obsidian are skipped and [[wikilinks]] keep working.')));
 }
 
 async function trashDialog() {

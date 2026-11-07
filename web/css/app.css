@@ -58,7 +58,7 @@ select.input { width: auto; }
 .tree-row .name { overflow: hidden; text-overflow: ellipsis; }
 .tree-row .acts { margin-left: auto; display: none; }
 .tree-row:hover .acts { display: flex; }
-.vault-switch { display: flex; gap: 6px; }
+.vault-switch { display: flex; gap: 6px; } .vault-switch select.input { min-width: 0; flex: 1; }
 .proposal { margin: 6px 8px; padding: 8px 10px; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; background: var(--bg3); }
 .diff { font: 12px/1.5 var(--mono); border: 1px solid var(--border); border-radius: 8px; overflow: auto; max-height: 48vh; background: var(--bg); }
 .dl { display: flex; white-space: pre-wrap; overflow-wrap: anywhere; padding: 0 8px 0 0; } .dm { width: 22px; flex: none; text-align: center; color: var(--muted); user-select: none; }

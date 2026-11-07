@@ -38,6 +38,7 @@ Plain Markdown files · wikilinks & backlinks · live graph · teams without los
 | **Notes** | Obsidian-compatible Markdown: `[[wikilinks]]`, `[[Note#Heading\|alias]]`, `![[embeds]]`, nested `#tags`, frontmatter, callouts, task lists, tables, backlinks, rename-with-link-update |
 | **Map** | The graph is the home screen: collections drawn as islands, a dock to filter by collection, search, floating note previews on click, colour by collection or freshness, constellation or classic style, zoom/pan/drag, forces and display sliders, and a radial local graph (orbit) per note |
 | **Everyday safety** | Trash with one-click restore, per-note history, change your own password, admins can reset passwords, owners can rename or delete a vault (it moves to the server trash, never erased) |
+| **Import** | Pick files or a whole folder (an Obsidian vault works: `.obsidian` is skipped, wikilinks keep working) or drag files onto the file tree; existing notes are never overwritten |
 | **Folders** | Nested folders, empty folders, drag & drop notes and folders, rename/move with automatic link updates |
 | **Teamwork** | Roles (viewer / editor / owner), live updates (SSE), an **Activity** panel (who changed what, automatic merges, AI-agent writes tagged `API`, who is online), full version history with restore |
 | **No lost edits** | Every save carries the revision it started from; stale saves are three-way merged, real conflicts are shown, never overwritten |

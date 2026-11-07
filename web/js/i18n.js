@@ -64,6 +64,7 @@ export const ES = {
   'proposes a change to': 'propone un cambio en', 'proposes a new note': 'propone una nota nueva', 'proposes adding text to': 'propone añadir texto a',
   'proposed a change to': 'propuso un cambio en', 'applied an agent proposal to': 'aplicó una propuesta de agente en', 'dismissed a proposal for': 'descartó una propuesta para',
   'Read + propose (changes need approval)': 'Lectura + propuestas (los cambios requieren aprobación)',
+  'Import files': 'Importar archivos', 'Choose files…': 'Elegir archivos…', 'Choose a folder…': 'Elegir una carpeta…', 'Importing': 'Importando', 'Imported': 'Importado', 'notes': 'notas', 'files': 'archivos', 'skipped': 'omitidos', 'failed': 'con error',
   'Map': 'Mapa', 'Document': 'Documento', 'Activity': 'Actividad', 'Recent activity': 'Actividad reciente', 'Online now': 'Conectados ahora', 'Only you': 'Solo tú', 'just now': 'ahora mismo',
   'edited': 'editó', 'merged changes in': 'fusionó cambios en', 'added text to': 'añadió texto a', 'deleted': 'eliminó', 'renamed': 'renombró', 'restored': 'restauró', 'uploaded': 'subió', 'created folder': 'creó la carpeta', 'deleted folder': 'eliminó la carpeta', 'moved folder': 'movió la carpeta', 'edited outside VaultFree:': 'editó fuera de VaultFree:',
   'New folder': 'Nueva carpeta', 'New subfolder': 'Nueva subcarpeta', 'Rename folder': 'Renombrar carpeta', 'Delete folder': 'Eliminar carpeta',
