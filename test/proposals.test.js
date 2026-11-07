@@ -83,7 +83,7 @@ test('propose-only tokens cannot write but can propose; people approve', async (
   const welcome = (await j('GET', `/api/vaults/${v}/notes/Welcome`, { token: agent.token })).data;
   const pr = await j('POST', `/api/vaults/${v}/proposals`, { token: agent.token, body: { path: 'Welcome', content: welcome.content + '\nAgent was here.\n', baseRev: welcome.rev, message: 'add a line' } });
   assert.equal(pr.status, 201);
-  assert.equal(pr.data.author, 'owner(api)');
+  assert.equal(pr.data.author, 'owner(api:agent)'); // attributed to the token's name
   assert.equal((await j('POST', `/api/vaults/${v}/proposals/${pr.data.id}/accept`, { token: agent.token })).status, 403);
   assert.doesNotMatch((await j('GET', `/api/vaults/${v}/notes/Welcome`, { cookie })).data.content, /Agent was here/);
 
@@ -93,7 +93,13 @@ test('propose-only tokens cannot write but can propose; people approve', async (
   assert.equal((await j('POST', `/api/vaults/${v}/proposals/${pr.data.id}/accept`, { cookie })).status, 200);
   assert.match((await j('GET', `/api/vaults/${v}/notes/Welcome`, { cookie })).data.content, /Agent was here/);
   const feed = (await j('GET', `/api/vaults/${v}/activity`, { cookie })).data.activity;
-  assert.ok(feed.some((e) => e.action === 'propose' && e.user === 'owner(api)'));
+  assert.ok(feed.some((e) => e.action === 'propose' && e.user === 'owner(api:agent)'));
+  // names are sanitised so they cannot break the format
+  const odd = (await j('POST', '/api/tokens', { cookie, body: { name: 'Weird (name): x', scopes: ['read', 'propose'] } })).data.token;
+  const oddProp = await j('POST', `/api/vaults/${v}/proposals`, { token: odd, body: { path: 'Odd', content: 'x' } });
+  assert.equal(oddProp.data.author, 'owner(api:Weird name x)');
+  const unnamed = (await j('POST', '/api/tokens', { cookie, body: { name: '', scopes: ['read', 'propose'] } })).data.token;
+  assert.match((await j('POST', `/api/vaults/${v}/proposals`, { token: unnamed, body: { path: 'Odd2', content: 'x' } })).data.author, /^owner\(api(:token)?\)$/);
   assert.ok(feed.some((e) => e.action === 'proposal' && e.user === 'owner'));
 
   // MCP: the propose tool works with this token, the write tool is refused

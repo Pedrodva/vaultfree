@@ -237,7 +237,7 @@ const activitySoon = debounce(() => { if (S.rbTab === 'activity') renderRight();
 async function onRemoteChange(ev) {
   refreshSoon();
   activitySoon();
-  const mine = ev.user === S.user.username || ev.user === S.user.username + '(api)';
+  const mine = ev.user === S.user.username || ev.user.startsWith(S.user.username + '(api');
   if (ev.type === 'proposal') {
     proposalsSoon();
     if (ev.status === 'open' && ev.user !== S.user.username) toast(ev.user + ' proposed a change to “' + baseName(ev.path) + '”');
@@ -762,6 +762,12 @@ function viewSwitch() {
 }
 
 // ── activity panel: who changed what, merges, agents, and who is online ──
+/** "ana(api:research agent)" -> { name: 'research agent', api: true, owner: 'ana' } */
+function actor(user) {
+  const m = /^(.*)\(api(?::(.*))?\)$/.exec(user || '');
+  return m ? { name: m[2] || m[1], api: true, owner: m[1] } : { name: user, api: false, owner: user };
+}
+
 const VERBS = { write: 'edited', merge: 'merged changes in', append: 'added text to', delete: 'deleted', rename: 'renamed', restore: 'restored', upload: 'uploaded', mkdir: 'created folder', rmdir: 'deleted folder', 'move-folder': 'moved folder', external: 'edited outside VaultFree:', propose: 'proposed a change to', proposal: 'applied an agent proposal to', 'reject-proposal': 'dismissed a proposal for' };
 
 function ago(iso) {
@@ -792,8 +798,7 @@ function renderFeed(list) {
   const items = feedItems(list);
   if (!items.length) return [h('div', { class: 'muted', style: { padding: '8px' } }, 'No activity yet.')];
   return items.map((it) => {
-    const viaApi = /\(api\)$/.test(it.user);
-    const name = it.user.replace(/\(api\)$/, '');
+    const a = actor(it.user), viaApi = a.api, name = a.name;
     const isNote = /\.md$/i.test(it.path || '');
     const target = it.action === 'rename'
       ? [noteLink(it.from || ''), ' → ', noteLink(it.path)]
@@ -801,7 +806,7 @@ function renderFeed(list) {
     return h('div', { class: 'act' },
       h('span', { class: 'avatar sm', style: { background: colorFor(name) } }, (name[0] || '?').toUpperCase()),
       h('div', { class: 'act-text' },
-        h('b', {}, name), viaApi && h('span', { class: 'badge-api', title: 'Used an API token (an AI agent or a script)' }, 'API'),
+        h('b', {}, name), viaApi && h('span', { class: 'badge-api', title: 'API token of ' + a.owner + ' (an AI agent or a script)' }, 'API'),
         ' ' + t(VERBS[it.action] || it.action) + ' ', ...target, it.count > 1 && ' ×' + it.count,
         h('div', { class: 'muted' }, ago(it.ts))));
   });
@@ -848,9 +853,9 @@ function drawProposals() {
   if (!S.proposals.length) return box.replaceChildren();
   box.replaceChildren(h('div', { class: 'section-title' }, t('Proposals') + ' (' + S.proposals.length + ')'),
     ...S.proposals.map((p) => {
-      const viaApi = /\(api\)$/.test(p.author);
+      const a = actor(p.author), viaApi = a.api;
       return h('div', { class: 'proposal' },
-        h('div', { class: 'act-text' }, h('b', {}, p.author.replace(/\(api\)$/, '')), viaApi && h('span', { class: 'badge-api' }, 'API'), ' ' + t(PKIND[p.kind]) + ' ', noteLink(p.path)),
+        h('div', { class: 'act-text' }, h('b', {}, a.name), viaApi && h('span', { class: 'badge-api', title: 'API token of ' + a.owner }, 'API'), ' ' + t(PKIND[p.kind]) + ' ', noteLink(p.path)),
         p.message ? h('div', { class: 'muted', style: { margin: '2px 0' } }, '“' + p.message + '”') : null,
         h('div', { class: 'row', style: { marginTop: '6px' } },
           h('button', { class: 'btn small primary', onclick: () => proposalDialog(p.id) }, t('Review')),
@@ -889,7 +894,7 @@ async function proposalDialog(id) {
   });
   const stale = p.kind === 'update' && d.current && d.current.rev !== p.baseRev;
   const m = modal(t('Review proposal'), h('div', { style: { display: 'grid', gap: '8px' } },
-    h('div', {}, h('b', {}, p.author), ' ' + t(PKIND[p.kind]) + ' ', h('b', {}, p.path)),
+    h('div', {}, h('b', {}, actor(p.author).name), actor(p.author).api ? h('span', { class: 'badge-api' }, 'API · ' + actor(p.author).owner) : null, ' ' + t(PKIND[p.kind]) + ' ', h('b', {}, p.path)),
     p.message ? h('div', { class: 'muted' }, '“' + p.message + '”') : null,
     stale ? h('div', { class: 'banner' }, 'The note changed after the agent read it. Accepting merges both versions; if the same lines changed you will see a conflict message and nothing is lost.') : null,
     h('div', { class: 'muted' }, '+' + added + ' / −' + removed + ' ' + t('lines')),

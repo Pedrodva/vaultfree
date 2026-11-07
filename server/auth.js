@@ -123,7 +123,7 @@ export class Auth {
       const user = this.userById(t.userId);
       if (!user || user.disabled) return null;
       if (Date.now() - (t.lastUsed || 0) > 60_000) { t.lastUsed = Date.now(); this.save(); }
-      return { user, via: 'token', scopes: t.scopes, vaults: t.vaults || null, tokenId: t.id };
+      return { user, via: 'token', scopes: t.scopes, vaults: t.vaults || null, tokenId: t.id, tokenName: t.name };
     }
     if (cookieToken) {
       const h = sha256(cookieToken);

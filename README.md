@@ -114,7 +114,7 @@ claude mcp add --transport http vaultfree http://localhost:3000/mcp \
 } } }
 ```
 
-**Agents propose, people approve.** Give an agent a *read + propose* token: it can read everything but cannot change a note directly. It calls `vaultfree_propose_change` (or `POST /proposals`) with the new text and a short message; the proposal appears in the **Activity** panel with a coloured diff, and a person accepts it (merged safely with any edits made meanwhile) or dismisses it. Nothing is written until someone approves.
+**Agents propose, people approve.** Give an agent a *read + propose* token: it can read everything but cannot change a note directly. It calls `vaultfree_propose_change` (or `POST /proposals`) with the new text and a short message; the proposal appears in the **Activity** panel with a coloured diff, and a person accepts it (merged safely with any edits made meanwhile) or dismisses it. Nothing is written until someone approves. Name each token after its agent ("research agent", "docs bot"): that name is what the Activity panel and the proposals show, so several agents can be told apart.
 
 Tools: `vaultfree_propose_change`, `vaultfree_list_proposals`, `vaultfree_search`, `vaultfree_read_note`, `vaultfree_write_note`, `vaultfree_append_note`, `vaultfree_graph_neighbors`, `vaultfree_get_context`, `vaultfree_list_notes`, `vaultfree_list_tags`, `vaultfree_list_vaults`.
 
@@ -196,7 +196,6 @@ CI runs the tests on Linux and Windows (Node 20 and 22) and builds the Docker im
 - [ ] Live co-editing (CRDT) beyond merge-on-save
 - [ ] OAuth for remote MCP clients
 - [ ] Plugin API and canvas boards
-- [ ] Per-agent identities (named tokens shown in the feed)
 - [x] Graph, wikilinks, backlinks · multi-user merge · invites · folders · MCP stdio + HTTP · EN/ES
 
 ## Contributing

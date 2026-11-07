@@ -49,7 +49,9 @@ export async function createApp(config) {
     return vaults.require(ctx.params.v, user, min);
   };
   const needAdmin = (ctx) => { if (needUser(ctx).role !== 'admin') throw new VaultFreeError(403, 'forbidden', 'Admin only'); };
-  const who = (ctx) => ctx.auth.user.username + (ctx.auth.via === 'token' ? '(api)' : '');
+  // writes made with an API token are attributed to the token's name, e.g. "ana(api:research agent)"
+  const tokenTag = (name) => { const s = String(name || '').replace(/[():\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40); return s ? `(api:${s})` : '(api)'; };
+  const who = (ctx) => ctx.auth.user.username + (ctx.auth.via === 'token' ? tokenTag(ctx.auth.tokenName) : '');
 
   // ---------- public ----------
   R('GET', '/api/health', (ctx) => ctx.json(200, { ok: true, version: VERSION }));

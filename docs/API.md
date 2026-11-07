@@ -38,7 +38,7 @@ Auth: browser session cookie, or `Authorization: Bearer vf_<token>` (create unde
 | POST | `/proposals/:id/accept` · `/reject` | editor | needs a session or a `write` token; accept applies the change with the usual merge (409 on a real conflict) |
 | GET | `/trash` · POST `/ops/restore-trash` | editor | deleted notes and `{id}` to restore one |
 | DELETE | `/api/vaults/:v?confirm=<id>` | owner | moves the whole vault to `<data>/.trash` |
-| GET | `/activity?limit=` | viewer | recent changes of the whole vault (who, what, when); writes made with an API token appear as `user(api)` |
+| GET | `/activity?limit=` | viewer | recent changes of the whole vault (who, what, when); writes made with an API token appear as `user(api:token name)`, so several agents can be told apart |
 | GET | `/search?q=&limit=` | viewer | `"phrase"`, `tag:x`, `path:x` |
 | GET | `/graph` | viewer | `q, tag, folder, orphans, unresolved, tags, center, depth` → `{nodes, edges}` |
 | GET | `/tags` | viewer | |
