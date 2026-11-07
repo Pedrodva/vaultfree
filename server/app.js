@@ -78,6 +78,13 @@ export async function createApp(config) {
   });
   R('GET', '/api/auth/me', (ctx) => ctx.json(200, { user: auth.publicUser(needUser(ctx)), via: ctx.auth.via, canCreateVaults: config.usersCanCreateVaults || ctx.auth.user.role === 'admin' }));
 
+  R('POST', '/api/auth/password', async (ctx) => {
+    const u = needUser(ctx);
+    if (ctx.auth.via !== 'session') throw new VaultFreeError(403, 'forbidden', 'Change your password from the web app');
+    await auth.changePassword(u.id, ctx.body.current, ctx.body.next, parseCookies(ctx.req.headers.cookie)[COOKIE]);
+    ctx.json(200, { ok: true });
+  });
+
   // ---------- tokens ----------
   R('GET', '/api/tokens', (ctx) => ctx.json(200, { tokens: auth.listTokens(needUser(ctx).id) }));
   R('POST', '/api/tokens', async (ctx) => {
@@ -95,6 +102,13 @@ export async function createApp(config) {
     needAdmin(ctx);
     const b = ctx.body;
     ctx.json(201, { user: await auth.createUser({ username: b.username, password: b.password, displayName: b.displayName, role: b.role === 'admin' ? 'admin' : 'user' }) });
+  });
+  R('POST', '/api/admin/users/:id/password', async (ctx) => {
+    needAdmin(ctx);
+    const target = auth.userById(ctx.params.id);
+    if (!target) throw new VaultFreeError(404, 'not_found', 'No such user');
+    await auth.setPassword(target.username, String(ctx.body.password || ''));
+    ctx.json(200, { ok: true });
   });
   R('PATCH', '/api/admin/users/:id', async (ctx) => {
     needAdmin(ctx);
@@ -170,6 +184,14 @@ export async function createApp(config) {
     await vault.saveMeta();
     ctx.json(200, { ok: true });
   });
+  R('DELETE', '/api/vaults/:v', async (ctx) => {
+    const { vault } = vaultFor(ctx, 'owner');
+    if (ctx.query.get('confirm') !== vault.id) throw new VaultFreeError(400, 'confirm_required', 'Pass ?confirm=<vault id> to delete a vault');
+    await vaults.remove(vault.id);
+    ctx.json(200, { ok: true, movedToTrash: true });
+  });
+  R('GET', '/api/vaults/:v/trash', async (ctx) => ctx.json(200, { trash: await vaultFor(ctx, 'editor').vault.listTrash() }));
+  R('POST', '/api/vaults/:v/ops/restore-trash', async (ctx) => ctx.json(200, await vaultFor(ctx, 'editor').vault.restoreTrash(ctx.body.id, { user: who(ctx) })));
   R('GET', '/api/vaults/:v/members', (ctx) => {
     const { vault } = vaultFor(ctx, 'viewer');
     ctx.json(200, { members: Object.entries(vault.meta.members).map(([id, role]) => ({ ...auth.publicUser(auth.userById(id)), role })).filter((m) => m.id) });

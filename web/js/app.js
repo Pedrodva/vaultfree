@@ -134,6 +134,7 @@ function buildShell() {
     S.user.role === 'admin' && btn('🛡', t('Admin: users'), adminDialog),
     btn('🌓', t('Toggle theme'), toggleTheme),
     btn(lang === 'es' ? 'EN' : 'ES', t('Language') + ': ' + (lang === 'es' ? 'English' : 'Español'), async () => { await saveNow(); setLang(lang === 'es' ? 'en' : 'es'); location.reload(); }),
+    btn('👤', t('Account'), accountDialog),
     btn('⏻', tf.signOut(S.user.username), logout));
   const ws = h('div', { class: 'ws', id: 'ws' }, R.ribbon, R.sidebar, R.main, R.right,
     h('div', { class: 'rs rs-left', title: t('Drag to resize') }), h('div', { class: 'rs rs-right', title: t('Drag to resize') }));
@@ -321,6 +322,7 @@ function renderTree() {
     }
   };
   walk(buildTree(), '', 0);
+  if (canEdit()) rows.push(h('div', { class: 'tree-row trash', style: { marginTop: '10px' }, onclick: trashDialog }, h('span', { class: 'name muted' }, '🗑 ' + t('Trash'))));
   R.sbBody.replaceChildren(...(rows.length ? rows : [h('div', { class: 'muted', style: { padding: '12px' } }, 'No notes yet. Press Ctrl+N.')]));
   withDrop(R.sbBody, ''); // dropping on empty space moves to the vault root
 }
@@ -1029,7 +1031,8 @@ async function membersDialog() {
       owner ? h('label', { class: 'row muted' }, h('input', { type: 'checkbox', checked: S.vault.allowCopy !== false, onchange: async (e) => { try { await api('PATCH', API(''), { allowCopy: e.target.checked }); S.vault.allowCopy = e.target.checked; toast(e.target.checked ? 'Members can copy this vault' : 'Copying and export disabled for members', 'ok'); } catch (x) { toast(x.message, 'error'); } } }), t('Allow members to copy / export this vault')) : null,
       owner ? h('div', { class: 'row' }, uname, role, h('button', { class: 'btn primary', onclick: async () => { try { await api('PUT', API('/members/' + uname.value.trim()), { role: role.value }); draw(); } catch (x) { toast(x.message, 'error'); } } }, t('Add')))
         : h('p', { class: 'muted' }, 'Only owners can change membership.'),
-      h('button', { class: 'btn', onclick: forkDialog }, t('Copy this vault to my own vault…')));
+      h('button', { class: 'btn', onclick: forkDialog }, t('Copy this vault to my own vault…')),
+      owner && h('div', { class: 'row' }, h('button', { class: 'btn', onclick: renameVault }, t('Rename vault')), h('button', { class: 'btn danger', onclick: deleteVault }, t('Delete vault'))));
   };
   modal(tf.members(S.vault.name), box);
   draw();
@@ -1114,6 +1117,63 @@ function forkDialog() {
     h('div', { class: 'row end' }, go)));
 }
 
+async function trashDialog() {
+  const box = h('div', { style: { display: 'grid', gap: '8px' } });
+  const draw = async () => {
+    const { trash } = await api('GET', API('/trash'));
+    box.replaceChildren(h('p', { class: 'muted' }, 'Deleted notes are kept here. Restoring puts the note back with its content (and a new name if the old one is taken).'),
+      ...(trash.length ? trash.map((x) => h('div', { class: 'row', style: { justifyContent: 'space-between' } },
+        h('span', {}, h('b', {}, baseName(x.path)), h('div', { class: 'muted' }, x.path + ' · ' + fmtTime(x.deletedAt))),
+        h('button', { class: 'btn small', onclick: async () => {
+          try { const r = await api('POST', API('/ops/restore-trash'), { id: x.id }); toast(t('Restored') + ': ' + r.path, 'ok'); await refreshList(true); renderSidebar(); draw(); } catch (e) { toast(e.message, 'error'); }
+        } }, t('Restore')))) : [h('div', { class: 'muted' }, 'The trash is empty.')]));
+  };
+  modal(t('Trash'), box, { wide: true });
+  draw();
+}
+
+function accountDialog() {
+  const cur = h('input', { class: 'input', type: 'password', placeholder: t('Current password'), autocomplete: 'current-password', required: true });
+  const nw = h('input', { class: 'input', type: 'password', placeholder: t('New password'), autocomplete: 'new-password', required: true });
+  const err = h('div', { class: 'err' });
+  const m = modal(t('Account'), h('form', { style: { display: 'grid', gap: '8px' }, onsubmit: async (e) => {
+    e.preventDefault(); err.textContent = '';
+    try { await api('POST', '/api/auth/password', { current: cur.value, next: nw.value }); toast(t('Password changed'), 'ok'); m.close(); } catch (x) { err.textContent = x.message; }
+  } }, h('div', { class: 'muted' }, (S.user.displayName || S.user.username) + ' (@' + S.user.username + ') · ' + S.user.role), cur, nw, err,
+  h('div', { class: 'row end' }, h('button', { class: 'btn primary' }, t('Change password')))));
+}
+
+async function renameVault() {
+  const name = await ask(t('Rename vault'), { value: S.vault.name, ok: 'OK' });
+  if (!name) return;
+  try {
+    await api('PATCH', API(''), { name });
+    S.vaults = (await api('GET', '/api/vaults')).vaults;
+    S.vault = S.vaults.find((v) => v.id === S.vault.id);
+    renderSidebar();
+    toast('OK', 'ok');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteVault() {
+  const typed = await ask(t('Delete vault'), { label: 'Type the vault id “' + V() + '” to confirm. The vault folder moves to the server trash (data/.trash); it is not erased.', ok: t('Delete') });
+  if (!typed) return;
+  if (typed !== V()) return toast('That is not the vault id', 'error');
+  try {
+    await api('DELETE', API('') + '?confirm=' + encodeURIComponent(V()));
+    S.es?.close(); lsSet('vault', null);
+    S.vaults = (await api('GET', '/api/vaults')).vaults;
+    await enterWorkspace();
+    toast(t('Vault deleted'), 'ok');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function resetUserPassword(x) {
+  const pw = await ask(t('Reset password'), { label: x.username, type: 'password', ok: 'OK' });
+  if (!pw) return;
+  try { await api('POST', '/api/admin/users/' + x.id + '/password', { password: pw }); toast('OK', 'ok'); } catch (e) { toast(e.message, 'error'); }
+}
+
 async function adminDialog() {
   const box = h('div', { style: { display: 'grid', gap: '10px' } });
   const draw = async () => {
@@ -1122,7 +1182,7 @@ async function adminDialog() {
     const adm = h('input', { type: 'checkbox' });
     box.replaceChildren(
       h('table', { class: 'table' }, users.map((x) => h('tr', {}, h('td', {}, x.username), h('td', { class: 'muted' }, x.role), h('td', {}, x.disabled ? 'disabled' : ''),
-        h('td', {}, x.id !== S.user.id && h('button', { class: 'btn small', onclick: async () => { await api('PATCH', '/api/admin/users/' + x.id, { disabled: !x.disabled }); draw(); } }, x.disabled ? t('Enable') : t('Disable')))))),
+        h('td', {}, x.id !== S.user.id && h('button', { class: 'btn small', onclick: async () => { await api('PATCH', '/api/admin/users/' + x.id, { disabled: !x.disabled }); draw(); } }, x.disabled ? t('Enable') : t('Disable')), ' ', h('button', { class: 'btn small', onclick: () => resetUserPassword(x) }, t('Reset password')))))),
       h('b', {}, t('Add user')), h('div', { class: 'row' }, u, p), h('label', { class: 'row' }, adm, t('Administrator')),
       h('button', { class: 'btn primary', onclick: async () => { try { await api('POST', '/api/admin/users', { username: u.value, password: p.value, role: adm.checked ? 'admin' : 'user' }); toast('User created', 'ok'); draw(); } catch (e) { toast(e.message, 'error'); } } }, t('Create user')),
       h('p', { class: 'muted' }, 'Then add them to a vault with the 👥 button.'));

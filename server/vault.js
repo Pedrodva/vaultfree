@@ -363,6 +363,32 @@ export class Vault extends EventEmitter {
     return fsp.readFile(this.abs(p));
   }
 
+  // ---- trash ----
+  async listTrash() {
+    let names = [];
+    try { names = await fsp.readdir(path.join(this.kdir, 'trash')); } catch { return []; }
+    const out = [];
+    for (const id of names) {
+      const m = /^(\d+)__(.+)$/.exec(id);
+      if (!m) continue;
+      try { out.push({ id, path: decodeURIComponent(m[2]), deletedAt: Number(m[1]) }); } catch { /* skip */ }
+    }
+    return out.sort((a, b) => b.deletedAt - a.deletedAt);
+  }
+
+  async restoreTrash(id, { user = 'system' } = {}) {
+    const m = /^(\d+)__(.+)$/.exec(String(id));
+    if (!m || /[\\/]/.test(id)) throw new VaultFreeError(400, 'invalid_id', 'Invalid trash id');
+    const file = path.join(this.kdir, 'trash', id);
+    let content;
+    try { content = await fsp.readFile(file, 'utf8'); } catch { throw new VaultFreeError(404, 'not_found', 'Not in the trash'); }
+    let p = normalizePath(decodeURIComponent(m[2]));
+    if (this.index.notes.has(p)) p = p.replace(/\.md$/i, '') + ' (restored).md';
+    const r = await this.write(p, content, { user, op: 'restore' });
+    await fsp.rm(file, { force: true });
+    return { path: r.path };
+  }
+
   /** Recent activity (newest first), taken from the tail of the audit log. */
   async activity(limit = 80) {
     await this.audit.flush();

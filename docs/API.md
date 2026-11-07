@@ -11,7 +11,8 @@ Auth: browser session cookie, or `Authorization: Bearer vf_<token>` (create unde
 | GET | `/api/auth/me` | |
 | POST | `/mcp` | MCP over HTTP (JSON-RPC, Streamable HTTP without streaming). Auth: `Authorization: Bearer vf_…` only (cookies are rejected) |
 | GET/POST | `/api/tokens` · DELETE `/api/tokens/:id` | |
-| GET/POST/PATCH | `/api/admin/users` | admin only |
+| POST | `/api/auth/password` | `{current, next}`; session only; signs out other sessions |
+| GET/POST/PATCH | `/api/admin/users` | admin only (`POST /api/admin/users/:id/password` resets a password) |
 | GET/POST/DELETE | `/api/admin/share` | admin: status / start / stop the public tunnel |
 | GET/POST | `/api/vaults/:v/invites` · DELETE `/:id` | owner: `{role: viewer|editor, maxUses, hours}` → `{token}` (shown once) |
 | GET/POST | `/api/invites/:token` · `/accept` | public: preview / join (creates the account if anonymous) |
@@ -32,6 +33,8 @@ Auth: browser session cookie, or `Authorization: Bearer vf_<token>` (create unde
 | DELETE | `/folders/{path}` | editor | delete an empty folder (`not_empty` otherwise) |
 | POST | `/ops/fork` | viewer | `{name, folder?}` → copies the vault (or a top folder) into a new vault owned by the caller; refused with `copy_disabled` if the owner turned it off |
 | GET | `/history?path=` · `/revisions/:rev` | viewer | |
+| GET | `/trash` · POST `/ops/restore-trash` | editor | deleted notes and `{id}` to restore one |
+| DELETE | `/api/vaults/:v?confirm=<id>` | owner | moves the whole vault to `<data>/.trash` |
 | GET | `/activity?limit=` | viewer | recent changes of the whole vault (who, what, when); writes made with an API token appear as `user(api)` |
 | GET | `/search?q=&limit=` | viewer | `"phrase"`, `tag:x`, `path:x` |
 | GET | `/graph` | viewer | `q, tag, folder, orphans, unresolved, tags, center, depth` → `{nodes, edges}` |

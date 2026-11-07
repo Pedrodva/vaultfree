@@ -68,6 +68,19 @@ export class Auth {
     await this.save();
   }
 
+  /** Self-service password change: needs the current password; other sessions are signed out. */
+  async changePassword(userId, current, next, keepSessionRaw = null) {
+    const u = this.userById(userId);
+    if (!u) throw new VaultFreeError(404, 'not_found', 'No such user');
+    const fail = this.throttle('pw|' + userId);
+    if (!(await checkPassword(String(current || ''), u.passHash))) { fail(); throw new VaultFreeError(403, 'bad_credentials', 'Current password is incorrect'); }
+    if (typeof next !== 'string' || next.length < 8) throw new VaultFreeError(400, 'weak_password', 'Password must be at least 8 characters');
+    u.passHash = await hashPassword(next);
+    const keep = keepSessionRaw ? sha256(keepSessionRaw) : null;
+    this.state.sessions = this.state.sessions.filter((s) => s.userId !== userId || s.hash === keep);
+    await this.save();
+  }
+
   async setDisabled(id, disabled) {
     const u = this.userById(id);
     if (!u) throw new VaultFreeError(404, 'not_found', 'No such user');

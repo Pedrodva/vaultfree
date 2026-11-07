@@ -42,6 +42,20 @@ export class VaultManager {
 
   get(id) { return this.vaults.get(id); }
 
+  /** Remove a vault from the server. Its folder is moved to <data>/.trash, never deleted outright. */
+  async remove(id) {
+    const v = this.vaults.get(id);
+    if (!v) throw new VaultFreeError(404, 'not_found', 'Vault not found');
+    v.close();
+    this.vaults.delete(id);
+    const trash = path.join(path.dirname(this.dir), '.trash');
+    await fs.promises.mkdir(trash, { recursive: true });
+    const dest = path.join(trash, `${id}-${Date.now()}`);
+    for (let i = 0; ; i++) {
+      try { await fs.promises.rename(v.root, dest); break; } catch (e) { if (i >= 5) throw e; await new Promise((r) => setTimeout(r, 200)); }
+    }
+  }
+
   /** Copy notes (optionally only a folder) and attachments into a brand-new vault owned by `user`. */
   async fork(src, user, { name, folder = '' }) {
     const prefix = folder ? folder.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '') + '/' : '';
