@@ -213,7 +213,7 @@ export class VaultIndex {
       const d = deg.get(p) || 0;
       if (!orphans && d === 0 && p !== center) continue;
       const m = this.notes.get(p);
-      nodes.push({ id: p, label: m.title, type: 'note', folder: m.folder, tags: m.tags, degree: d, words: m.words });
+      nodes.push({ id: p, label: m.title, type: 'note', folder: m.folder, tags: m.tags, degree: d, words: m.words, mtime: m.mtime });
     }
     for (const id of deg.keys()) {
       if (id.startsWith('unresolved:')) nodes.push({ id, label: id.slice(11), type: 'unresolved', degree: deg.get(id) });

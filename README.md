@@ -12,7 +12,7 @@ Plain Markdown files · wikilinks & backlinks · live graph · teams without los
 ![Dependencies: 0](https://img.shields.io/badge/runtime%20dependencies-0-brightgreen)
 ![Docker ready](https://img.shields.io/badge/docker-ready-2496ED)
 
-<img src="docs/img/graph.png" alt="VaultFree graph view with a hovered node highlighting its neighbours" width="760">
+<img src="docs/img/map.jpg" alt="VaultFree map: collections as islands, with a hovered note highlighting its neighbours" width="760">
 
 </div>
 
@@ -28,7 +28,7 @@ Plain Markdown files · wikilinks & backlinks · live graph · teams without los
 <div align="center">
 <img src="docs/img/notes.png" alt="Note with rendered Markdown, file tree and local graph" width="760">
 <br><br>
-<img src="docs/img/activity.jpg" alt="Activity panel showing edits, an automatic merge and AI-agent writes" width="520">
+<img src="docs/img/map-card.jpg" alt="Click a note on the map for a floating preview" width="400"> <img src="docs/img/activity.jpg" alt="Activity panel showing edits, an automatic merge and AI-agent writes" width="360">
 </div>
 
 ## Features
@@ -36,7 +36,7 @@ Plain Markdown files · wikilinks & backlinks · live graph · teams without los
 | | |
 |---|---|
 | **Notes** | Obsidian-compatible Markdown: `[[wikilinks]]`, `[[Note#Heading\|alias]]`, `![[embeds]]`, nested `#tags`, frontmatter, callouts, task lists, tables, backlinks, rename-with-link-update |
-| **Graph view** | Constellation-style force-directed canvas (classic style optional): hover to highlight neighbours, zoom/pan/drag, filters (search, tags, orphans, unresolved), colour groups, force & display sliders, local graph per note |
+| **Map** | The graph is the home screen: collections drawn as islands, a dock to filter by collection, search, floating note previews on click, colour by collection or freshness, constellation or classic style, zoom/pan/drag, forces and display sliders, and a radial local graph (orbit) per note |
 | **Folders** | Nested folders, empty folders, drag & drop notes and folders, rename/move with automatic link updates |
 | **Teamwork** | Roles (viewer / editor / owner), live updates (SSE), an **Activity** panel (who changed what, automatic merges, AI-agent writes tagged `API`, who is online), full version history with restore |
 | **No lost edits** | Every save carries the revision it started from; stale saves are three-way merged, real conflicts are shown, never overwritten |

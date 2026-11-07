@@ -15,7 +15,7 @@ const S = {
   user: null, canCreate: true, vaults: [], vault: null, notes: [], files: [], resolve: () => null, tags: [],
   cur: null, view: 'note', mode: ls('mode', 'split'), sbTab: 'files', rbTab: ls('rb', 'activity'),
   presence: [], collapsed: new Set(ls('collapsed', [])), es: null, gv: null, local: null, searchQ: '',
-  gs: Object.assign({ q: '', tag: '', orphans: true, unresolved: false, tags: false, arrows: false, style: 'constellation', textFade: 0.8, nodeSize: 1,
+  gs: Object.assign({ q: '', tag: '', orphans: true, unresolved: false, tags: false, arrows: false, style: 'constellation', territories: true, folder: '', textFade: 0.8, nodeSize: 1,
     linkThickness: 1, centerForce: 0.07, repelForce: 2, linkForce: 1, linkDistance: 95, groups: [], colorBy: 'folder', depth: 1 }, ls('graph', {})),
 };
 const V = () => S.vault.id;
@@ -191,6 +191,7 @@ async function loadVault(id) {
   const last = ls('note:' + id, null);
   const start = S.notes.find((n) => n.path === last) ? last : S.notes.find((n) => n.path === 'Welcome.md') ? 'Welcome.md' : S.notes[0]?.path;
   if (start) await openNote(start); else { renderMain(); renderRight(); }
+  if (start && ls('home', 'map') === 'map') { S.view = 'graph'; renderMain(); } // the map is the home screen
 }
 
 async function createVault() {
@@ -851,7 +852,7 @@ function renderRight() {
     const depth = h('input', { type: 'range', min: 1, max: 4, value: S.gs.depth, oninput: (e) => { S.gs.depth = Number(e.target.value); lsSet('graph', S.gs); loadLocal(); } });
     body.append(wrap, h('label', { class: 'muted', style: { display: 'flex', gap: '8px', padding: '0 10px', alignItems: 'center' } }, t('Depth'), depth),
       h('div', { style: { padding: '6px' } }, h('button', { class: 'btn small', onclick: toggleGraph }, t('Open full graph'))));
-    S.local = new GraphView($('canvas', wrap), { current: c.path, onOpen: (n) => openNote(n.id), options: { ...S.gs, nodeSize: 1.1, textFade: 1 } });
+    S.local = new GraphView($('canvas', wrap), { current: c.path, onOpen: (n) => openNote(n.id), options: { ...S.gs, layout: 'orbit', territories: false, nodeSize: 1.2, textFade: 1 } });
     loadLocal();
   } else if (S.rbTab === 'history') {
     renderHistory(body);
@@ -886,6 +887,43 @@ async function restoreRev(x) {
 }
 
 // ───────────────────────── graph view ─────────────────────────
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+function plainExcerpt(md) {
+  return md.replace(/^---[\s\S]*?\n---\s*\n/, '').replace(/```[\s\S]*?```/g, ' ').replace(/!?\[\[([^\]|#]*)[^\]]*\|([^\]]+)\]\]/g, '$2').replace(/!?\[\[([^\]#|]+)[^\]]*\]\]/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/^#{1,6}\s+/gm, '').replace(/[*_`>~]/g, '').replace(/^\s*\|?[\s:|-]+\|?\s*$/gm, ' ').replace(/\|/g, ' · ').replace(/\s+/g, ' ').replace(/(· )+/g, '· ').trim().slice(0, 230);
+}
+
+/** Floating preview of a note on the map (click a node). */
+async function showCard(n) {
+  const gv = S.gv, box = R.cardBox;
+  if (!gv || !box) return;
+  let note;
+  try { note = await api('GET', API('/notes/' + enc(n.id))); } catch (e) { return toast(e.message, 'error'); }
+  gv.setCurrent(n.id);
+  const pos = gv.screenPos(n);
+  const card = h('div', { class: 'node-card', style: { left: clamp(pos.x + 16, 8, gv.w - 268) + 'px', top: clamp(pos.y - 24, 8, gv.h - 210) + 'px' } },
+    h('div', { class: 'row', style: { justifyContent: 'space-between', alignItems: 'flex-start' } }, h('b', {}, note.title), h('button', { class: 'icon-btn', 'aria-label': t('Close'), onclick: () => box.replaceChildren() }, '✕')),
+    h('div', { class: 'muted' }, note.path),
+    note.tags.length ? h('div', { style: { margin: '4px 0' } }, ...note.tags.map((tg) => h('span', { class: 'tag-pill', onclick: () => searchFor('tag:' + tg) }, '#' + tg))) : null,
+    h('p', { class: 'card-ex' }, plainExcerpt(note.content) || '…'),
+    h('div', { class: 'muted' }, note.backlinks.length + ' backlinks · ' + (note.links.length + note.unresolved.length) + ' links'),
+    h('div', { class: 'row end', style: { marginTop: '8px' } }, h('button', { class: 'btn small primary', onclick: () => openNote(note.path) }, t('Open document'))));
+  box.replaceChildren(card);
+}
+
+function renderDock(gv) {
+  const box = R.dock;
+  if (!box) return;
+  const counts = new Map();
+  for (const n of S.notes) { const k = n.folder.split('/')[0]; if (k) counts.set(k, (counts.get(k) || 0) + 1); }
+  const chip = (label, value, count) => h('button', { class: 'chip' + ((S.gs.folder || '') === value ? ' active' : ''),
+    onclick: () => { S.gs.folder = value; lsSet('graph', S.gs); renderDock(gv); loadGraph(gv); } }, label, h('span', { class: 'muted' }, ' ' + count));
+  const dot = (c, label) => h('span', { class: 'legend-item' }, h('i', { style: { background: c } }), t(label));
+  box.replaceChildren(...[chip(t('All'), '', S.notes.length), ...[...counts].sort((a, b) => a[0].localeCompare(b[0])).map(([k, c]) => chip(k, k, c)),
+    S.gs.colorBy === 'freshness' ? h('div', { class: 'legend' }, dot('#5eead4', 'fresh'), dot('#f59e0b', 'aging'), dot('#fb7185', 'stale')) : null].filter(Boolean));
+}
+
 function toggleGraph() {
   if (S.view === 'graph') { S.view = 'note'; destroyGraph(); renderMain(); } else { S.view = 'graph'; renderMain(); }
 }
@@ -894,7 +932,7 @@ function destroyGraph() { S.gv?.destroy(); S.gv = null; }
 async function loadGraph(gv, extra = {}) {
   if (!gv) return;
   const g = S.gs, p = new URLSearchParams({ orphans: g.orphans ? 1 : 0, unresolved: g.unresolved ? 1 : 0, tags: g.tags ? 1 : 0 });
-  if (!extra.center) { if (g.q) p.set('q', g.q); if (g.tag) p.set('tag', g.tag); }
+  if (!extra.center) { if (g.q) p.set('q', g.q); if (g.tag) p.set('tag', g.tag); if (g.folder) p.set('folder', g.folder); }
   for (const [k, v] of Object.entries(extra)) p.set(k, v);
   try {
     const data = await api('GET', API('/graph?' + p));
@@ -907,12 +945,21 @@ function renderGraphView() {
   destroyGraph();
   const canvas = h('canvas');
   R.stats = h('div', { class: 'graph-stats' });
-  const wrap = h('div', { class: 'graph-wrap' }, canvas, R.stats);
-  R.main.replaceChildren(h('div', { class: 'topbar' }, viewSwitch(),
-    h('span', { class: 'status', style: { flex: 1, textAlign: 'right' } }, 'Scroll to zoom · drag to pan · double-click to fit · click a node to open')), wrap);
-  const gv = new GraphView(canvas, { current: S.cur?.path, onOpen: (n) => (n.type === 'tag' ? searchFor('tag:' + n.label.slice(1)) : openNote(n.id)), options: S.gs });
+  R.cardBox = h('div', { class: 'card-box' });
+  R.dock = h('div', { class: 'dock' });
+  const wrap = h('div', { class: 'graph-wrap' }, canvas, R.stats, R.cardBox, R.dock);
+  const search = h('input', { class: 'input map-search', placeholder: t('Search the map…'), value: S.gs.q, 'aria-label': t('Search the map…'),
+    oninput: debounce((e) => { S.gs.q = e.target.value; lsSet('graph', S.gs); loadGraph(S.gv); }, 250) });
+  R.main.replaceChildren(h('div', { class: 'topbar' }, viewSwitch(), search,
+    h('span', { class: 'status', style: { flex: 1, textAlign: 'right' } }, 'Scroll to zoom · drag to pan · double-click to fit · click a note for a preview')), wrap);
+  const gv = new GraphView(canvas, {
+    current: S.cur?.path, options: S.gs,
+    onOpen: (n) => (n.type === 'tag' ? searchFor('tag:' + n.label.slice(1)) : showCard(n)),
+    onBackground: () => R.cardBox?.replaceChildren(),
+  });
   S.gv = gv;
   wrap.append(graphPanel(gv));
+  renderDock(gv);
   loadGraph(gv);
 }
 
@@ -932,10 +979,10 @@ function graphPanel(gv) {
   const tagSel = h('select', { class: 'input', style: { width: '100%' }, onchange: (e) => { g.tag = e.target.value; save(); loadGraph(gv); } },
     h('option', { value: '' }, t('All tags')), S.tags.map((t) => h('option', { value: t.tag, selected: g.tag === t.tag }, '#' + t.tag)));
   const sections = [
-    h('details', {}, h('summary', {}, t('Filters')), q, tagSel, check(t('Tags'), 'tags', true), check(t('Orphans'), 'orphans', true), check(t('Unresolved links'), 'unresolved', true)),
-    h('details', {}, h('summary', {}, t('Groups')), h('label', {}, t('Color by folder'), h('input', { type: 'checkbox', checked: g.colorBy === 'folder', onchange: (e) => { g.colorBy = e.target.checked ? 'folder' : 'none'; gv.setOptions({ colorBy: g.colorBy }, false); gv.recolor(); save(); } })), groupsBox),
+    h('details', {}, h('summary', {}, t('Filters')), tagSel, check(t('Tags'), 'tags', true), check(t('Orphans'), 'orphans', true), check(t('Unresolved links'), 'unresolved', true)),
+    h('details', {}, h('summary', {}, t('Groups')), h('label', {}, t('Color by'), h('select', { class: 'input', onchange: (e) => { g.colorBy = e.target.value; gv.setOptions({ colorBy: g.colorBy }, false); gv.recolor(); renderDock(gv); save(); } }, [['folder', 'Collection'], ['freshness', 'Freshness'], ['none', 'None']].map(([v, l]) => h('option', { value: v, selected: g.colorBy === v }, t(l))))), h('label', {}, t('Collection islands'), h('input', { type: 'checkbox', checked: g.territories !== false, onchange: (e) => { g.territories = e.target.checked; gv.setOptions({ territories: g.territories }); save(); } })), groupsBox),
     h('details', {}, h('summary', {}, t('Display')), h('label', {}, t('Style'), h('select', { class: 'input', onchange: (e) => { g.style = e.target.value; gv.setOptions({ style: g.style }, false); S.local?.setOptions({ style: g.style }, false); save(); } }, h('option', { value: 'constellation', selected: g.style !== 'classic' }, t('Constellation')), h('option', { value: 'classic', selected: g.style === 'classic' }, t('Classic')))), check(t('Arrows'), 'arrows'), range(t('Text fade'), 'textFade', 0, 1.5, 0.05), range(t('Node size'), 'nodeSize', 0.4, 3, 0.05), range(t('Link thickness'), 'linkThickness', 0.3, 4, 0.1)),
-    h('details', {}, h('summary', {}, t('Forces')), range(t('Center force'), 'centerForce', 0, 1, 0.01), range(t('Repel force'), 'repelForce', 0, 4, 0.05), range(t('Link force'), 'linkForce', 0, 3, 0.05), range(t('Link distance'), 'linkDistance', 20, 250, 1)),
+    h('details', {}, h('summary', {}, t('Forces')), range(t('Center force'), 'centerForce', 0, 1, 0.01), range(t('Cluster force'), 'clusterForce', 0, 1, 0.01), range(t('Repel force'), 'repelForce', 0, 4, 0.05), range(t('Link force'), 'linkForce', 0, 3, 0.05), range(t('Link distance'), 'linkDistance', 20, 250, 1)),
   ];
   const panel = h('div', { class: 'graph-panel' + (ls('gpOpen', false) ? '' : ' collapsed') });
   const toggle = h('button', { class: 'icon-btn gp-toggle', title: t('Graph settings'), 'aria-label': t('Graph settings'),

@@ -4,6 +4,7 @@
 const DEFAULTS = {
   centerForce: 0.07, repelForce: 2, linkForce: 1, linkDistance: 95,
   nodeSize: 1, linkThickness: 1, textFade: 0.8, arrows: false, colorBy: 'folder', groups: [], style: 'constellation',
+  territories: false, clusterForce: 0.25, layout: 'force', depth: 1,
 };
 
 const PALETTE = ['#a88bfa', '#5eead4', '#f59e0b', '#f472b6', '#60a5fa', '#a3e635', '#fb7185', '#38bdf8', '#e879f9', '#facc15'];
@@ -15,6 +16,7 @@ export class GraphView {
     this.opt = { ...DEFAULTS, ...options };
     this.onOpen = onOpen || (() => {});
     this.onHover = onHover || (() => {});
+    this.onBackground = arguments[1]?.onBackground || (() => {});
     this.current = current;
     this.nodes = []; this.links = []; this.byId = new Map();
     this.view = { x: 0, y: 0, k: 1 };
@@ -74,8 +76,36 @@ export class GraphView {
     if (!same) { this.autoFit = true; this.ticks = 0; }
     if (!old.size) this.fit(false);
     this.alpha = 1;
+    if (this.opt.layout === 'orbit') { this._orbit(); this.alpha = 0; this.fit(false); }
     this.dirty = true;
   }
+
+  /** Static radial layout: the current note in the middle, neighbours in rings by link distance. */
+  _orbit() {
+    const center = this.byId.get(this.current) || this.nodes[0];
+    if (!center) return;
+    const maxD = Math.max(1, this.opt.depth || 1);
+    const depth = new Map([[center, 0]]);
+    let frontier = [center];
+    for (let d = 1; d <= maxD; d++) {
+      const next = [];
+      for (const n of frontier) for (const m of this.adj.get(n)) if (!depth.has(m)) { depth.set(m, d); next.push(m); }
+      frontier = next;
+    }
+    const rings = new Map();
+    for (const n of this.nodes) { const d = depth.has(n) ? depth.get(n) : maxD + 1; if (!rings.has(d)) rings.set(d, []); rings.get(d).push(n); }
+    this.ringR = [];
+    for (const [d, arr] of rings) {
+      if (d === 0) { center.x = center.y = 0; continue; }
+      arr.sort((a, b) => a.label.localeCompare(b.label));
+      const R = 62 * d + Math.max(0, arr.length - 8) * 4;
+      this.ringR.push(R);
+      arr.forEach((n, i) => { const a = (i / arr.length) * Math.PI * 2 - Math.PI / 2 + d * 0.35; n.x = Math.cos(a) * R; n.y = Math.sin(a) * R; });
+    }
+    for (const n of this.nodes) { n.hx = n.fx = n.x; n.hy = n.fy = n.y; n.vx = n.vy = 0; n.ring = depth.has(n) ? depth.get(n) : maxD + 1; }
+  }
+
+  screenPos(n) { return { x: this.w / 2 + this.view.x + n.x * this.view.k, y: this.h / 2 + this.view.y + n.y * this.view.k }; }
 
   _assignColors() {
     const folders = [...new Set(this.nodes.filter((n) => n.type === 'note').map((n) => n.folder.split('/')[0] || ''))].sort();
@@ -93,6 +123,10 @@ export class GraphView {
       if (tag && n.tags?.some((t) => t === tag[1] || t.startsWith(tag[1] + '/'))) return g.color;
       if (path && n.id.toLowerCase().includes(path[1].toLowerCase())) return g.color;
       if (!tag && !path && n.label.toLowerCase().includes(q.toLowerCase())) return g.color;
+    }
+    if (this.opt.colorBy === 'freshness' && n.mtime) {
+      const days = (Date.now() - n.mtime) / 86400000;
+      return days < 7 ? '#5eead4' : days < 30 ? '#f59e0b' : '#fb7185';
     }
     if (this.opt.colorBy === 'folder') return this.folderColor.get(n.folder.split('/')[0] || '') || this.colors.node;
     return this.colors.node;
@@ -134,6 +168,36 @@ export class GraphView {
     }
     // many-body repulsion (Barnes-Hut)
     this._repel(a * 40 * o.repelForce);
+    // collections pull their notes together so they form islands
+    const cf = o.territories && o.layout !== 'orbit' ? o.clusterForce : 0;
+    if (cf > 0) {
+      const groups = new Map();
+      for (const n of nodes) {
+        if (n.type !== 'note') continue;
+        const k = n.folder.split('/')[0];
+        if (!k) continue;
+        let g = groups.get(k);
+        if (!g) groups.set(k, (g = { x: 0, y: 0, n: 0 }));
+        g.x += n.x; g.y += n.y; g.n++;
+      }
+      // keep islands apart so they do not pile up
+      const list = [...groups.values()];
+      for (const g of list) { g.cx = g.x / g.n; g.cy = g.y / g.n; g.r = 26 * Math.sqrt(g.n) + 24; g.px = 0; g.py = 0; }
+      for (let i = 0; i < list.length; i++) {
+        for (let j = i + 1; j < list.length; j++) {
+          const A = list[i], B = list[j];
+          if (A.n < 2 || B.n < 2) continue;
+          let dx = B.cx - A.cx, dy = B.cy - A.cy;
+          const d = Math.hypot(dx, dy) || 0.01, want = (A.r + B.r) * 1.05;
+          if (d < want) { dx /= d; dy /= d; const f = (want - d) * 0.09 * a; A.px -= dx * f; A.py -= dy * f; B.px += dx * f; B.py += dy * f; }
+        }
+      }
+      for (const n of nodes) {
+        if (n.type !== 'note') continue;
+        const g = groups.get(n.folder.split('/')[0]);
+        if (g && g.n > 1) { n.vx += (g.cx - n.x) * cf * a + g.px; n.vy += (g.cy - n.y) * cf * a + g.py; }
+      }
+    }
     // centre pull
     for (const n of nodes) { n.vx -= n.x * o.centerForce * a * 0.1; n.vy -= n.y * o.centerForce * a * 0.1; }
     for (const n of nodes) {
@@ -193,7 +257,8 @@ export class GraphView {
     const w = this.w, h = this.h;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const n of this.nodes) { minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x); minY = Math.min(minY, n.y); maxY = Math.max(maxY, n.y); }
-    const k = Math.min(w / (maxX - minX + 90), h / (maxY - minY + 90), 3);
+    const pad = this.opt.territories && this.opt.layout !== 'orbit' ? 200 : 90; // islands extend beyond their notes
+    const k = Math.min(w / (maxX - minX + pad), h / (maxY - minY + pad), 3);
     this.view = { k: isFinite(k) && k > 0 ? k : 1, x: -((minX + maxX) / 2) * k, y: -((minY + maxY) / 2) * k };
     this.dirty = true;
   }
@@ -243,10 +308,12 @@ export class GraphView {
     const up = () => {
       if (this.drag) {
         const n = this.drag;
-        n.fx = n.fy = null; this.alphaTarget = 0; this.drag = null;
+        if (this.opt.layout === 'orbit') { n.fx = n.x = n.hx; n.fy = n.y = n.hy; } else n.fx = n.fy = null;
+        this.alphaTarget = 0; this.drag = null;
         if (!this.moved && n.type === 'note') this.onOpen(n);
         else if (!this.moved && n.type === 'tag') this.onOpen(n);
       }
+      if (this.pan && !this.moved) this.onBackground();
       this.pan = null;
     };
     c.addEventListener('pointerup', up);
@@ -269,6 +336,35 @@ export class GraphView {
   }
 
   // ---------- drawing ----------
+  _drawTerritories(view, C) {
+    const { ctx } = this;
+    const groups = new Map();
+    for (const n of this.nodes) {
+      if (n.type !== 'note') continue;
+      const k = n.folder.split('/')[0];
+      if (!k) continue;
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(n);
+    }
+    const fs = 13 / Math.max(view.k, 0.6);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `600 ${fs}px system-ui, sans-serif`;
+    for (const [k, arr] of groups) {
+      if (arr.length < 2) continue;
+      let cx = 0, cy = 0;
+      for (const n of arr) { cx += n.x; cy += n.y; }
+      cx /= arr.length; cy /= arr.length;
+      const d = arr.map((n) => Math.hypot(n.x - cx, n.y - cy)).sort((a, b) => a - b);
+      const r = d[Math.min(d.length - 1, Math.floor(d.length * 0.9))] + 26;
+      const col = this.folderColor.get(k) || C.node;
+      ctx.globalAlpha = 0.08; ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.4; ctx.strokeStyle = col; ctx.lineWidth = 1 / view.k; ctx.setLineDash([5 / view.k, 4 / view.k]); ctx.stroke(); ctx.setLineDash([]);
+      ctx.globalAlpha = 0.95; ctx.fillStyle = col; ctx.fillText(k, cx, cy - r - fs * 0.9);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   _draw() {
     if (!this.dirty) return;
     this.dirty = false;
@@ -278,6 +374,13 @@ export class GraphView {
     ctx.fillRect(0, 0, w, h);
     ctx.translate(w / 2 + view.x, h / 2 + view.y);
     ctx.scale(view.k, view.k);
+
+    if (opt.territories && opt.layout !== 'orbit') this._drawTerritories(view, C);
+    if (opt.layout === 'orbit' && this.ringR) {
+      ctx.strokeStyle = C.link; ctx.lineWidth = 1 / view.k; ctx.setLineDash([3 / view.k, 4 / view.k]); ctx.globalAlpha = 0.6;
+      for (const R of this.ringR) { ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
 
     const hov = this.hover || this.drag;
     const hl = hov ? this.adj.get(hov) : null;
@@ -339,7 +442,7 @@ export class GraphView {
     for (const n of this.nodes) {
       const lit = isLit(n);
       const emphasized = n === hov || n.id === this.current || (hov && hl.has(n));
-      const base = constel ? (n.hub ? fadeHub : fadeSmall) : fade;
+      const base = opt.layout === 'orbit' ? (n.ring <= 1 ? 1 : 0) : constel ? (n.hub ? fadeHub : fadeSmall) : fade;
       const alpha = emphasized ? 1 : lit ? base * (n.type === 'unresolved' ? 0.6 : constel ? 0.95 : 0.85) : 0;
       if (alpha < 0.05) continue;
       ctx.globalAlpha = alpha;
