@@ -6,6 +6,7 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ### Added
 - Markdown vaults stored as plain files; wikilinks, embeds, nested tags, frontmatter, backlinks, rename with link rewriting
+- Map / Document switch in the top bar and an Activity panel (recent changes, automatic merges, writes made through API tokens marked `API`, who is online) updated live; `GET /activity` endpoint
 - Resizable and collapsible side panels (drag the edge, double-click to reset; remembered) and a compact, collapsible graph settings panel
 - Graph view in a "Constellation" style (small stars, halos and labels on hubs; classic style optional) with hover highlight, zoom/pan/drag, filters, groups, forces, auto-fit, and a local graph per note
 - Nested folders (including empty ones) with drag & drop, rename/move and delete

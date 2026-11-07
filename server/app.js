@@ -216,6 +216,7 @@ export async function createApp(config) {
     const { vault } = vaultFor(ctx, 'editor');
     ctx.json(200, await vault.restore(ctx.body.path, ctx.body.rev, { user: who(ctx) }));
   });
+  R('GET', '/api/vaults/:v/activity', async (ctx) => ctx.json(200, { activity: await vaultFor(ctx, 'viewer').vault.activity(Math.min(Number(ctx.query.get('limit')) || 60, 300)) }));
   R('GET', '/api/vaults/:v/history', async (ctx) => ctx.json(200, { history: await vaultFor(ctx, 'viewer').vault.history(ctx.query.get('path') || '') }));
   R('GET', '/api/vaults/:v/revisions/:rev', async (ctx) => {
     const c = await vaultFor(ctx, 'viewer').vault.getObject(ctx.params.rev);

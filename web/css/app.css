@@ -48,7 +48,7 @@ select.input { width: auto; }
 .rightbar { border-right: 0; border-left: 1px solid var(--border); }
 .sb-head { padding: 8px; display: grid; gap: 6px; border-bottom: 1px solid var(--border); }
 .sb-tabs, .rb-tabs { display: flex; border-bottom: 1px solid var(--border); }
-.sb-tabs button, .rb-tabs button { flex: 1; background: none; border: 0; padding: 7px 4px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; }
+.sb-tabs button, .rb-tabs button { flex: 1; font-size: 12px; background: none; border: 0; padding: 7px 2px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; }
 .sb-tabs button.active, .rb-tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
 .sb-body, .rb-body { overflow: auto; flex: 1; padding: 6px 4px; min-height: 0; }
 .tree-row { display: flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 5px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -59,6 +59,14 @@ select.input { width: auto; }
 .tree-row .acts { margin-left: auto; display: none; }
 .tree-row:hover .acts { display: flex; }
 .vault-switch { display: flex; gap: 6px; }
+.seg { display: inline-flex; flex: none; gap: 2px; padding: 2px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; }
+.seg button { background: none; border: 0; border-radius: 6px; padding: 3px 11px; cursor: pointer; color: var(--muted); font-size: 13px; }
+.seg button:hover { color: var(--text); } .seg button.active { background: var(--accent-bg); color: var(--text); }
+.avatar.sm { width: 22px; height: 22px; margin-left: 0; border: 0; font-size: 11px; flex: none; }
+.act { display: flex; gap: 8px; padding: 6px 8px; border-radius: 6px; } .act:hover { background: var(--bg3); }
+.act-text { font-size: 13px; line-height: 1.4; min-width: 0; overflow-wrap: anywhere; }
+.badge-api { margin-left: 5px; font-size: 10px; padding: 0 6px; border-radius: 8px; background: var(--accent-bg); color: var(--accent); }
+.presence-row { display: flex; gap: 8px; align-items: center; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; } .presence-row:hover { background: var(--bg3); }
 .tree-row.drop, .sb-body.drop { background: var(--accent-bg); outline: 1px dashed var(--accent); outline-offset: -2px; }
 .tree-row[draggable='true'] { cursor: grab; }
 .result { padding: 6px 8px; border-radius: 6px; cursor: pointer; }

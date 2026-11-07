@@ -363,6 +363,33 @@ export class Vault extends EventEmitter {
     return fsp.readFile(this.abs(p));
   }
 
+  /** Recent activity (newest first), taken from the tail of the audit log. */
+  async activity(limit = 80) {
+    await this.audit.flush();
+    const file = path.join(this.kdir, 'audit.log');
+    let text = '';
+    try {
+      const st = await fsp.stat(file);
+      const size = Math.min(st.size, 512 * 1024);
+      const fh = await fsp.open(file, 'r');
+      const buf = Buffer.alloc(size);
+      await fh.read(buf, 0, size, st.size - size);
+      await fh.close();
+      text = buf.toString('utf8');
+      if (st.size > size) text = text.slice(text.indexOf('\n') + 1); // drop the partial first line
+    } catch { return []; }
+    const out = [];
+    for (const line of text.split('\n').reverse()) {
+      if (!line.trim()) continue;
+      try {
+        const e = JSON.parse(line);
+        out.push({ ts: e.ts, user: e.user, action: e.action, path: e.path, ...(e.from ? { from: e.from } : {}) });
+      } catch { /* skip damaged line */ }
+      if (out.length >= limit) break;
+    }
+    return out;
+  }
+
   // ---- integrity ----
   async verify() {
     const problems = [];

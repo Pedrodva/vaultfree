@@ -1,6 +1,8 @@
 import { $, h, api, toast, modal, ask, confirmBox, picker, fmtTime, debounce, baseName } from './ui.js';
 import { renderMarkdown } from './markdown.js';
 import { t, tf, lang, setLang } from './i18n.js';
+
+const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
 import { GraphView } from './graph.js';
 import { createResolver } from '/shared/resolve.js';
 import { merge3 } from '/shared/merge.js';
@@ -11,7 +13,7 @@ const enc = (p) => p.split('/').map(encodeURIComponent).join('/');
 
 const S = {
   user: null, canCreate: true, vaults: [], vault: null, notes: [], files: [], resolve: () => null, tags: [],
-  cur: null, view: 'note', mode: ls('mode', 'split'), sbTab: 'files', rbTab: ls('rb', 'links'),
+  cur: null, view: 'note', mode: ls('mode', 'split'), sbTab: 'files', rbTab: ls('rb', 'activity'),
   presence: [], collapsed: new Set(ls('collapsed', [])), es: null, gv: null, local: null, searchQ: '',
   gs: Object.assign({ q: '', tag: '', orphans: true, unresolved: false, tags: false, arrows: false, style: 'constellation', textFade: 0.8, nodeSize: 1,
     linkThickness: 1, centerForce: 0.07, repelForce: 2, linkForce: 1, linkDistance: 95, groups: [], colorBy: 'folder', depth: 1 }, ls('graph', {})),
@@ -222,12 +224,15 @@ function connectEvents() {
   S.es?.close();
   const es = new EventSource(API('/events'));
   S.es = es;
-  es.addEventListener('presence', (e) => { S.presence = JSON.parse(e.data); renderAvatars(); });
+  es.addEventListener('presence', (e) => { S.presence = JSON.parse(e.data); renderAvatars(); drawPresence(); });
   es.addEventListener('change', (e) => onRemoteChange(JSON.parse(e.data)));
 }
 
+const activitySoon = debounce(() => { if (S.rbTab === 'activity') renderRight(); }, 500);
+
 async function onRemoteChange(ev) {
   refreshSoon();
+  activitySoon();
   const mine = ev.user === S.user.username || ev.user === S.user.username + '(api)';
   const c = S.cur;
   if (!c) return;
@@ -488,7 +493,7 @@ function renderMain() {
   if (S.view === 'graph') return renderGraphView();
   const c = S.cur;
   if (!c) {
-    R.main.replaceChildren(h('div', { class: 'empty' }, h('div', {}, h('h2', {}, t('No note open')), h('p', { class: 'muted' }, 'Ctrl+O to open a note · Ctrl+N to create one · Ctrl+G for the graph'))));
+    R.main.replaceChildren(h('div', { class: 'topbar' }, viewSwitch()), h('div', { class: 'empty' }, h('div', {}, h('h2', {}, t('No note open')), h('p', { class: 'muted' }, 'Ctrl+O to open a note · Ctrl+N to create one · Ctrl+G for the graph'))));
     R.editor = R.preview = null; return;
   }
   const ro = S.vault.role === 'viewer';
@@ -505,7 +510,7 @@ function renderMain() {
   const title = h('input', { class: 'title', value: baseName(c.path), readonly: ro, title: c.path, 'aria-label': t('Note title'),
     onchange: (e) => renameCurrent(e.target.value.trim()), onkeydown: (e) => { if (e.key === 'Enter') e.target.blur(); } });
   R.main.replaceChildren(
-    h('div', { class: 'topbar' }, title, R.avatars, R.status, modeBtn('edit', t('✎ Edit')), modeBtn('split', t('◫ Split')), modeBtn('preview', t('👁 Read'))),
+    h('div', { class: 'topbar' }, viewSwitch(), title, R.avatars, R.status, modeBtn('edit', t('✎ Edit')), modeBtn('split', t('◫ Split')), modeBtn('preview', t('👁 Read'))),
     R.banner, panes);
   R.editor.addEventListener('input', onEdit);
   R.editor.addEventListener('keydown', onEditorKey);
@@ -740,6 +745,78 @@ function acceptAC() {
   closeAC(); onEdit();
 }
 
+function viewSwitch() {
+  const b = (id, label, icon) => h('button', { class: S.view === id ? 'active' : '', 'aria-pressed': String(S.view === id), onclick: () => { if (S.view !== id) toggleGraph(); } }, icon + ' ' + label);
+  return h('div', { class: 'seg' }, b('graph', t('Map'), '🕸'), b('note', t('Document'), '📄'));
+}
+
+// ── activity panel: who changed what, merges, agents, and who is online ──
+const VERBS = { write: 'edited', merge: 'merged changes in', append: 'added text to', delete: 'deleted', rename: 'renamed', restore: 'restored', upload: 'uploaded', mkdir: 'created folder', rmdir: 'deleted folder', 'move-folder': 'moved folder', external: 'edited outside VaultFree:' };
+
+function ago(iso) {
+  const s = Math.round((Date.parse(iso) - Date.now()) / 1000), a = Math.abs(s);
+  if (a < 45) return t('just now');
+  if (a < 3600) return rtf.format(Math.round(s / 60), 'minute');
+  if (a < 86400) return rtf.format(Math.round(s / 3600), 'hour');
+  return rtf.format(Math.round(s / 86400), 'day');
+}
+
+function feedItems(list) {
+  const items = [];
+  for (const e of list) {
+    if (e.action === 'relink' || e.action === 'forked-from') continue;
+    const prev = items[items.length - 1];
+    if (prev && prev.user === e.user && prev.action === e.action && prev.path === e.path && Date.parse(prev.ts) - Date.parse(e.ts) < 10 * 60 * 1000) { prev.count++; continue; }
+    items.push({ ...e, count: 1 });
+  }
+  return items;
+}
+
+function noteLink(p) {
+  if (!S.notes.some((n) => n.path === p)) return h('span', { class: 'muted' }, baseName(p));
+  return h('a', { href: '#', class: 'internal-link', onclick: (e) => { e.preventDefault(); openNote(p); } }, baseName(p));
+}
+
+function renderFeed(list) {
+  const items = feedItems(list);
+  if (!items.length) return [h('div', { class: 'muted', style: { padding: '8px' } }, 'No activity yet.')];
+  return items.map((it) => {
+    const viaApi = /\(api\)$/.test(it.user);
+    const name = it.user.replace(/\(api\)$/, '');
+    const isNote = /\.md$/i.test(it.path || '');
+    const target = it.action === 'rename'
+      ? [noteLink(it.from || ''), ' → ', noteLink(it.path)]
+      : [isNote ? noteLink(it.path) : h('span', { class: 'muted' }, it.path || '')];
+    return h('div', { class: 'act' },
+      h('span', { class: 'avatar sm', style: { background: colorFor(name) } }, (name[0] || '?').toUpperCase()),
+      h('div', { class: 'act-text' },
+        h('b', {}, name), viaApi && h('span', { class: 'badge-api', title: 'Used an API token (an AI agent or a script)' }, 'API'),
+        ' ' + t(VERBS[it.action] || it.action) + ' ', ...target, it.count > 1 && ' ×' + it.count,
+        h('div', { class: 'muted' }, ago(it.ts))));
+  });
+}
+
+function drawPresence() {
+  if (!R.presenceBox || !R.presenceBox.isConnected) return;
+  const others = S.presence.filter((p) => p.username !== S.user.username);
+  R.presenceBox.replaceChildren(h('div', { class: 'section-title' }, t('Online now')),
+    ...(others.length ? others.map((p) => h('div', { class: 'presence-row', onclick: () => { if (S.notes.some((n) => n.path === p.path)) openNote(p.path); } },
+      h('span', { class: 'avatar sm', style: { background: colorFor(p.username) } }, (p.displayName || p.username)[0].toUpperCase()),
+      h('span', {}, h('b', {}, p.displayName || p.username), h('div', { class: 'muted' }, baseName(p.path)))))
+      : [h('div', { class: 'muted', style: { padding: '2px 8px' } }, t('Only you'))]));
+}
+
+async function renderActivity(body) {
+  R.presenceBox = h('div', { class: 'presence-box' });
+  const feed = h('div', { class: 'feed' }, h('div', { class: 'muted', style: { padding: '8px' } }, '…'));
+  body.append(R.presenceBox, h('div', { class: 'section-title' }, t('Recent activity')), feed);
+  drawPresence();
+  try {
+    const { activity } = await api('GET', API('/activity?limit=80'));
+    feed.replaceChildren(...renderFeed(activity));
+  } catch (e) { feed.textContent = e.message; }
+}
+
 function renderAvatars() {
   if (!R.avatars) return;
   const others = S.presence.filter((p) => p.username !== S.user.username);
@@ -753,7 +830,8 @@ function renderRight() {
   const c = S.cur;
   const tab = (id, label) => h('button', { class: S.rbTab === id ? 'active' : '', onclick: () => { S.rbTab = id; lsSet('rb', id); renderRight(); } }, label);
   const body = h('div', { class: 'rb-body' });
-  R.right.replaceChildren(h('div', { class: 'rb-tabs' }, tab('links', t('Links')), tab('outline', t('Outline')), tab('graph', t('Graph')), tab('history', t('History'))), body);
+  R.right.replaceChildren(h('div', { class: 'rb-tabs' }, tab('activity', t('Activity')), tab('links', t('Links')), tab('outline', t('Outline')), tab('graph', t('Graph')), tab('history', t('History'))), body);
+  if (S.rbTab === 'activity') return renderActivity(body);
   if (!c) return;
   const d = c.detail;
   if (S.rbTab === 'links') {
@@ -830,9 +908,8 @@ function renderGraphView() {
   const canvas = h('canvas');
   R.stats = h('div', { class: 'graph-stats' });
   const wrap = h('div', { class: 'graph-wrap' }, canvas, R.stats);
-  R.main.replaceChildren(h('div', { class: 'topbar' }, h('b', { class: 'title', style: { padding: '3px 6px' } }, t('Graph view')),
-    h('span', { class: 'status' }, 'Scroll to zoom · drag to pan · double-click to fit · click a node to open'),
-    h('button', { class: 'btn small', onclick: toggleGraph }, t('Close'))), wrap);
+  R.main.replaceChildren(h('div', { class: 'topbar' }, viewSwitch(),
+    h('span', { class: 'status', style: { flex: 1, textAlign: 'right' } }, 'Scroll to zoom · drag to pan · double-click to fit · click a node to open')), wrap);
   const gv = new GraphView(canvas, { current: S.cur?.path, onOpen: (n) => (n.type === 'tag' ? searchFor('tag:' + n.label.slice(1)) : openNote(n.id)), options: S.gs });
   S.gv = gv;
   wrap.append(graphPanel(gv));

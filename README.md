@@ -27,6 +27,8 @@ Plain Markdown files · wikilinks & backlinks · live graph · teams without los
 
 <div align="center">
 <img src="docs/img/notes.png" alt="Note with rendered Markdown, file tree and local graph" width="760">
+<br><br>
+<img src="docs/img/activity.jpg" alt="Activity panel showing edits, an automatic merge and AI-agent writes" width="520">
 </div>
 
 ## Features
@@ -36,12 +38,12 @@ Plain Markdown files · wikilinks & backlinks · live graph · teams without los
 | **Notes** | Obsidian-compatible Markdown: `[[wikilinks]]`, `[[Note#Heading\|alias]]`, `![[embeds]]`, nested `#tags`, frontmatter, callouts, task lists, tables, backlinks, rename-with-link-update |
 | **Graph view** | Constellation-style force-directed canvas (classic style optional): hover to highlight neighbours, zoom/pan/drag, filters (search, tags, orphans, unresolved), colour groups, force & display sliders, local graph per note |
 | **Folders** | Nested folders, empty folders, drag & drop notes and folders, rename/move with automatic link updates |
-| **Teamwork** | Roles (viewer / editor / owner), live updates (SSE), presence avatars, full version history with restore |
+| **Teamwork** | Roles (viewer / editor / owner), live updates (SSE), an **Activity** panel (who changed what, automatic merges, AI-agent writes tagged `API`, who is online), full version history with restore |
 | **No lost edits** | Every save carries the revision it started from; stale saves are three-way merged, real conflicts are shown, never overwritten |
 | **Sharing** | One-click invite links (read or edit, expiry optional), copy a vault to your own, optional public HTTPS link |
 | **AI** | REST API, MCP (stdio + HTTP), `/context`, `/chunks`, JSONL export, `/llms.txt` |
 | **Integrity** | Content-addressed history (SHA-256), hash-chained audit log, `vaultfree verify` |
-| **Interface** | Light/dark themes, command palette, quick switcher, English & Spanish |
+| **Interface** | Map / Document switch, resizable panels, light/dark themes, command palette, quick switcher, English & Spanish |
 
 ## Quick start
 

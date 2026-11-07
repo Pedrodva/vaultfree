@@ -57,6 +57,8 @@ export const ES = {
   'Username to add': 'Usuario a añadir', 'Token name, e.g. “Claude Desktop”': 'Nombre del token, p. ej. “Claude Desktop”',
   'Toggle file panel': 'Mostrar/ocultar archivos', 'Toggle side panel': 'Mostrar/ocultar panel lateral', 'Graph settings': 'Ajustes del grafo', 'Settings': 'Ajustes', 'Drag to resize': 'Arrastra para cambiar el tamaño',
   'Style': 'Estilo', 'Constellation': 'Constelación', 'Classic': 'Clásico',
+  'Map': 'Mapa', 'Document': 'Documento', 'Activity': 'Actividad', 'Recent activity': 'Actividad reciente', 'Online now': 'Conectados ahora', 'Only you': 'Solo tú', 'just now': 'ahora mismo',
+  'edited': 'editó', 'merged changes in': 'fusionó cambios en', 'added text to': 'añadió texto a', 'deleted': 'eliminó', 'renamed': 'renombró', 'restored': 'restauró', 'uploaded': 'subió', 'created folder': 'creó la carpeta', 'deleted folder': 'eliminó la carpeta', 'moved folder': 'movió la carpeta', 'edited outside VaultFree:': 'editó fuera de VaultFree:',
   'New folder': 'Nueva carpeta', 'New subfolder': 'Nueva subcarpeta', 'Rename folder': 'Renombrar carpeta', 'Delete folder': 'Eliminar carpeta',
   'Move note to folder…': 'Mover nota a carpeta…', '(vault root)': '(raíz del vault)', 'Folder name': 'Nombre de la carpeta', 'or full path': 'o ruta completa',
   // generic modals
