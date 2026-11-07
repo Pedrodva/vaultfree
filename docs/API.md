@@ -33,6 +33,9 @@ Auth: browser session cookie, or `Authorization: Bearer vf_<token>` (create unde
 | DELETE | `/folders/{path}` | editor | delete an empty folder (`not_empty` otherwise) |
 | POST | `/ops/fork` | viewer | `{name, folder?}` → copies the vault (or a top folder) into a new vault owned by the caller; refused with `copy_disabled` if the owner turned it off |
 | GET | `/history?path=` · `/revisions/:rev` | viewer | |
+| POST | `/proposals` | editor | `{path, content \| append, baseRev?, message}` → pending proposal. Tokens with the `propose` scope may call only this write endpoint |
+| GET | `/proposals?status=` · `/proposals/:id` | viewer | list / details (proposal, `current`, `base`) |
+| POST | `/proposals/:id/accept` · `/reject` | editor | needs a session or a `write` token; accept applies the change with the usual merge (409 on a real conflict) |
 | GET | `/trash` · POST `/ops/restore-trash` | editor | deleted notes and `{id}` to restore one |
 | DELETE | `/api/vaults/:v?confirm=<id>` | owner | moves the whole vault to `<data>/.trash` |
 | GET | `/activity?limit=` | viewer | recent changes of the whole vault (who, what, when); writes made with an API token appear as `user(api)` |

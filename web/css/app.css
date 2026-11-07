@@ -59,9 +59,21 @@ select.input { width: auto; }
 .tree-row .acts { margin-left: auto; display: none; }
 .tree-row:hover .acts { display: flex; }
 .vault-switch { display: flex; gap: 6px; }
+.proposal { margin: 6px 8px; padding: 8px 10px; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; background: var(--bg3); }
+.diff { font: 12px/1.5 var(--mono); border: 1px solid var(--border); border-radius: 8px; overflow: auto; max-height: 48vh; background: var(--bg); }
+.dl { display: flex; white-space: pre-wrap; overflow-wrap: anywhere; padding: 0 8px 0 0; } .dm { width: 22px; flex: none; text-align: center; color: var(--muted); user-select: none; }
+.dl.add { background: rgba(63, 185, 80, .16); } .dl.add .dm { color: var(--ok); } .dl.del { background: rgba(229, 72, 77, .16); } .dl.del .dm { color: var(--danger); } .dl.gap { color: var(--muted); }
 .map-search { max-width: 260px; height: 30px; }
 .card-box { position: absolute; inset: 0; pointer-events: none; }
-.node-card { position: absolute; width: 250px; pointer-events: auto; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; box-shadow: 0 6px 28px #0007; font-size: 13px; }
+.node-card { position: absolute; display: flex; flex-direction: column; min-width: 230px; min-height: 110px; max-width: 92%; max-height: 92%; resize: both; overflow: hidden; pointer-events: auto; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 6px 28px #0007; font-size: 13px; }
+.card-head { display: flex; align-items: center; gap: 4px; padding: 6px 6px 2px 12px; cursor: move; user-select: none; touch-action: none; }
+.card-head .grow { flex: 1; }
+.card-meta, .card-tags { padding: 0 12px 2px; }
+.card-body { flex: 1; min-height: 0; overflow: auto; border-top: 1px solid var(--border); margin-top: 4px; }
+.card-body.preview { max-width: none; margin: 4px 0 0; padding: 6px 12px 10px; font-size: 13px; line-height: 1.5; }
+.card-body.preview h1 { font-size: 1.25em; margin-top: .4em; } .card-body.preview h2 { font-size: 1.1em; }
+.card-foot { padding: 6px 10px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
+.node-card.min { height: auto !important; min-height: 0; resize: none; } .node-card.min .card-body, .node-card.min .card-foot, .node-card.min .card-meta, .node-card.min .card-tags { display: none; }
 .card-ex { margin: 6px 0; color: var(--text); line-height: 1.45; max-height: 6.4em; overflow: hidden; }
 .dock { position: absolute; left: 12px; bottom: 10px; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100% - 40px); align-items: center; }
 .chip { background: var(--bg2); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; }

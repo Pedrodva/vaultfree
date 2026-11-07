@@ -15,6 +15,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = path.join(ROOT, 'web');
 const SHARED = path.join(ROOT, 'shared');
 const COOKIE = 'vf_session';
+// tokens limited to the 'propose' scope may only create proposals
+const isProposalCreate = (a, req, url) => a.scopes.includes('propose') && req.method === 'POST' && /^\/api\/vaults\/[^/]+\/proposals$/.test(url.pathname);
 
 function parseCookies(h = '') {
   const out = {};
@@ -238,6 +240,15 @@ export async function createApp(config) {
     const { vault } = vaultFor(ctx, 'editor');
     ctx.json(200, await vault.restore(ctx.body.path, ctx.body.rev, { user: who(ctx) }));
   });
+  R('POST', '/api/vaults/:v/proposals', async (ctx) => {
+    const { vault } = vaultFor(ctx, 'editor');
+    const b = ctx.body;
+    ctx.json(201, await vault.propose({ path: b.path, content: b.content, append: b.append, baseRev: b.baseRev ?? null, message: b.message, author: who(ctx) }));
+  });
+  R('GET', '/api/vaults/:v/proposals', async (ctx) => ctx.json(200, { proposals: await vaultFor(ctx, 'viewer').vault.listProposals(ctx.query.get('status') || '') }));
+  R('GET', '/api/vaults/:v/proposals/:id', async (ctx) => ctx.json(200, await vaultFor(ctx, 'viewer').vault.getProposal(ctx.params.id)));
+  R('POST', '/api/vaults/:v/proposals/:id/accept', async (ctx) => ctx.json(200, await vaultFor(ctx, 'editor').vault.decideProposal(ctx.params.id, 'accept', { user: who(ctx) })));
+  R('POST', '/api/vaults/:v/proposals/:id/reject', async (ctx) => ctx.json(200, await vaultFor(ctx, 'editor').vault.decideProposal(ctx.params.id, 'reject', { user: who(ctx), reason: ctx.body.reason })));
   R('GET', '/api/vaults/:v/activity', async (ctx) => ctx.json(200, { activity: await vaultFor(ctx, 'viewer').vault.activity(Math.min(Number(ctx.query.get('limit')) || 60, 300)) }));
   R('GET', '/api/vaults/:v/history', async (ctx) => ctx.json(200, { history: await vaultFor(ctx, 'viewer').vault.history(ctx.query.get('path') || '') }));
   R('GET', '/api/vaults/:v/revisions/:rev', async (ctx) => {
@@ -366,7 +377,7 @@ export async function createApp(config) {
           let ok = false;
           try { ok = !!origin && new URL(origin).host === req.headers.host; } catch { /* bad origin */ }
           if (!ok) throw new VaultFreeError(403, 'csrf', 'Cross-origin request blocked');
-        } else if (!a.scopes.includes('write') && url.pathname !== '/mcp') throw new VaultFreeError(403, 'forbidden', 'Token lacks write scope'); // /mcp enforces scopes per tool call via the REST API
+        } else if (!a.scopes.includes('write') && url.pathname !== '/mcp' && !isProposalCreate(a, req, url)) throw new VaultFreeError(403, 'forbidden', 'Token lacks write scope'); // /mcp enforces scopes per tool call via the REST API
       }
       const ctx = {
         req, res, auth: a, params: m.params, query: url.searchParams, body: {},

@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format based on [Keep a
 
 ### Added
 - Markdown vaults stored as plain files; wikilinks, embeds, nested tags, frontmatter, backlinks, rename with link rewriting
+- Agent proposals: tokens with a `propose` scope cannot write, they leave a pending change (update, new note or append); people review a diff in the Activity panel and accept (merged safely) or dismiss; MCP tools `vaultfree_propose_change` and `vaultfree_list_proposals`
+- The map note card can be dragged, resized, minimized and scrolled
 - Trash dialog to restore deleted notes, account dialog to change your password, admin password reset, vault rename and delete (to the server trash)
 - The map is the home screen: collections as islands, collection dock, search, floating note preview on click, colour by collection or freshness, radial "orbit" local graph
 - Map / Document switch in the top bar and an Activity panel (recent changes, automatic merges, writes made through API tokens marked `API`, who is online) updated live; `GET /activity` endpoint

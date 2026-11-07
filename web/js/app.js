@@ -5,7 +5,7 @@ import { t, tf, lang, setLang } from './i18n.js';
 const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
 import { GraphView } from './graph.js';
 import { createResolver } from '/shared/resolve.js';
-import { merge3 } from '/shared/merge.js';
+import { merge3, diffLines } from '/shared/merge.js';
 
 const ls = (k, d) => { try { return JSON.parse(localStorage.getItem('vf.' + k)) ?? d; } catch { return d; } };
 const lsSet = (k, v) => localStorage.setItem('vf.' + k, JSON.stringify(v));
@@ -14,7 +14,7 @@ const enc = (p) => p.split('/').map(encodeURIComponent).join('/');
 const S = {
   user: null, canCreate: true, vaults: [], vault: null, notes: [], files: [], resolve: () => null, tags: [],
   cur: null, view: 'note', mode: ls('mode', 'split'), sbTab: 'files', rbTab: ls('rb', 'activity'),
-  presence: [], collapsed: new Set(ls('collapsed', [])), es: null, gv: null, local: null, searchQ: '',
+  presence: [], proposals: [], collapsed: new Set(ls('collapsed', [])), es: null, gv: null, local: null, searchQ: '',
   gs: Object.assign({ q: '', tag: '', orphans: true, unresolved: false, tags: false, arrows: false, style: 'constellation', territories: true, folder: '', textFade: 0.8, nodeSize: 1,
     linkThickness: 1, centerForce: 0.07, repelForce: 2, linkForce: 1, linkDistance: 95, groups: [], colorBy: 'folder', depth: 1 }, ls('graph', {})),
 };
@@ -188,6 +188,7 @@ async function loadVault(id) {
   S.cur = null;
   await refreshList(true);
   connectEvents();
+  loadProposals();
   renderSidebar();
   const last = ls('note:' + id, null);
   const start = S.notes.find((n) => n.path === last) ? last : S.notes.find((n) => n.path === 'Welcome.md') ? 'Welcome.md' : S.notes[0]?.path;
@@ -236,6 +237,11 @@ async function onRemoteChange(ev) {
   refreshSoon();
   activitySoon();
   const mine = ev.user === S.user.username || ev.user === S.user.username + '(api)';
+  if (ev.type === 'proposal') {
+    proposalsSoon();
+    if (ev.status === 'open' && ev.user !== S.user.username) toast(ev.user + ' proposed a change to “' + baseName(ev.path) + '”');
+    return;
+  }
   const c = S.cur;
   if (!c) return;
   if (ev.type === 'delete' && ev.path === c.path && !mine) { toast(`${ev.user} deleted “${baseName(c.path)}”`); S.cur = null; renderMain(); renderRight(); return; }
@@ -754,7 +760,7 @@ function viewSwitch() {
 }
 
 // ── activity panel: who changed what, merges, agents, and who is online ──
-const VERBS = { write: 'edited', merge: 'merged changes in', append: 'added text to', delete: 'deleted', rename: 'renamed', restore: 'restored', upload: 'uploaded', mkdir: 'created folder', rmdir: 'deleted folder', 'move-folder': 'moved folder', external: 'edited outside VaultFree:' };
+const VERBS = { write: 'edited', merge: 'merged changes in', append: 'added text to', delete: 'deleted', rename: 'renamed', restore: 'restored', upload: 'uploaded', mkdir: 'created folder', rmdir: 'deleted folder', 'move-folder': 'moved folder', external: 'edited outside VaultFree:', propose: 'proposed a change to', proposal: 'applied an agent proposal to', 'reject-proposal': 'dismissed a proposal for' };
 
 function ago(iso) {
   const s = Math.round((Date.parse(iso) - Date.now()) / 1000), a = Math.abs(s);
@@ -812,12 +818,84 @@ function drawPresence() {
 async function renderActivity(body) {
   R.presenceBox = h('div', { class: 'presence-box' });
   const feed = h('div', { class: 'feed' }, h('div', { class: 'muted', style: { padding: '8px' } }, '…'));
-  body.append(R.presenceBox, h('div', { class: 'section-title' }, t('Recent activity')), feed);
+  R.proposalBox = h('div', { class: 'proposal-box' });
+  body.append(R.proposalBox, R.presenceBox, h('div', { class: 'section-title' }, t('Recent activity')), feed);
+  drawProposals();
   drawPresence();
   try {
     const { activity } = await api('GET', API('/activity?limit=80'));
     feed.replaceChildren(...renderFeed(activity));
   } catch (e) { feed.textContent = e.message; }
+}
+
+// ── proposals: agents propose a change, a person reviews the diff and accepts or dismisses ──
+const PKIND = { update: 'proposes a change to', create: 'proposes a new note', append: 'proposes adding text to' };
+
+async function loadProposals() {
+  if (!S.vault) return;
+  try { S.proposals = (await api('GET', API('/proposals?status=open'))).proposals; } catch { S.proposals = []; }
+  const first = $('.rb-tabs button', R.right);
+  if (first) first.textContent = t('Activity') + (S.proposals.length ? ' (' + S.proposals.length + ')' : '');
+  drawProposals();
+}
+const proposalsSoon = debounce(loadProposals, 300);
+
+function drawProposals() {
+  const box = R.proposalBox;
+  if (!box || !box.isConnected) return;
+  if (!S.proposals.length) return box.replaceChildren();
+  box.replaceChildren(h('div', { class: 'section-title' }, t('Proposals') + ' (' + S.proposals.length + ')'),
+    ...S.proposals.map((p) => {
+      const viaApi = /\(api\)$/.test(p.author);
+      return h('div', { class: 'proposal' },
+        h('div', { class: 'act-text' }, h('b', {}, p.author.replace(/\(api\)$/, '')), viaApi && h('span', { class: 'badge-api' }, 'API'), ' ' + t(PKIND[p.kind]) + ' ', noteLink(p.path)),
+        p.message ? h('div', { class: 'muted', style: { margin: '2px 0' } }, '“' + p.message + '”') : null,
+        h('div', { class: 'row', style: { marginTop: '6px' } },
+          h('button', { class: 'btn small primary', onclick: () => proposalDialog(p.id) }, t('Review')),
+          canEdit() && h('button', { class: 'btn small', onclick: () => decideProposal(p.id, 'reject') }, t('Dismiss'))));
+    }));
+}
+
+async function decideProposal(id, decision, done) {
+  try {
+    const r = await api('POST', API('/proposals/' + id + '/' + decision), {});
+    toast(decision === 'accept' ? t('Accepted') + (r.merged ? ' (merged)' : '') : t('Dismissed'), 'ok');
+    done?.();
+    await loadProposals();
+    refreshSoon();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function proposalDialog(id) {
+  let d;
+  try { d = await api('GET', API('/proposals/' + id)); } catch (e) { return toast(e.message, 'error'); }
+  const p = d.proposal;
+  const cur = (d.current?.content ?? '').replace(/\n?$/, '\n');
+  const oldText = p.kind === 'update' ? d.base ?? '' : p.kind === 'append' ? cur : '';
+  const newText = p.kind === 'append' ? cur + p.append + (p.append.endsWith('\n') ? '' : '\n') : p.content;
+  const diff = diffLines(oldText, newText);
+  const keep = new Set();
+  diff.forEach((x, i) => { if (x.t !== 'same') for (let k = i - 2; k <= i + 2; k++) keep.add(k); });
+  const added = diff.filter((x) => x.t === 'add').length, removed = diff.filter((x) => x.t === 'del').length;
+  const rows = [];
+  let gap = false;
+  diff.forEach((x, i) => {
+    if (!keep.has(i)) { gap = true; return; }
+    if (gap && rows.length) rows.push(h('div', { class: 'dl gap' }, h('span', { class: 'dm' }, '⋯'), ''));
+    gap = false;
+    rows.push(h('div', { class: 'dl ' + x.t }, h('span', { class: 'dm' }, x.t === 'add' ? '+' : x.t === 'del' ? '−' : ' '), x.line || ' '));
+  });
+  const stale = p.kind === 'update' && d.current && d.current.rev !== p.baseRev;
+  const m = modal(t('Review proposal'), h('div', { style: { display: 'grid', gap: '8px' } },
+    h('div', {}, h('b', {}, p.author), ' ' + t(PKIND[p.kind]) + ' ', h('b', {}, p.path)),
+    p.message ? h('div', { class: 'muted' }, '“' + p.message + '”') : null,
+    stale ? h('div', { class: 'banner' }, 'The note changed after the agent read it. Accepting merges both versions; if the same lines changed you will see a conflict message and nothing is lost.') : null,
+    h('div', { class: 'muted' }, '+' + added + ' / −' + removed + ' ' + t('lines')),
+    h('div', { class: 'diff' }, ...(rows.length ? rows : [h('div', { class: 'dl same' }, h('span', { class: 'dm' }, ' '), 'No visible changes.')])),
+    h('div', { class: 'row end' },
+      h('button', { class: 'btn', onclick: () => m.close() }, t('Close')),
+      canEdit() && h('button', { class: 'btn', onclick: () => decideProposal(id, 'reject', () => m.close()) }, t('Dismiss')),
+      canEdit() && h('button', { class: 'btn primary', onclick: () => decideProposal(id, 'accept', () => m.close()) }, t('Accept')))), { wide: true });
 }
 
 function renderAvatars() {
@@ -833,7 +911,7 @@ function renderRight() {
   const c = S.cur;
   const tab = (id, label) => h('button', { class: S.rbTab === id ? 'active' : '', onclick: () => { S.rbTab = id; lsSet('rb', id); renderRight(); } }, label);
   const body = h('div', { class: 'rb-body' });
-  R.right.replaceChildren(h('div', { class: 'rb-tabs' }, tab('activity', t('Activity')), tab('links', t('Links')), tab('outline', t('Outline')), tab('graph', t('Graph')), tab('history', t('History'))), body);
+  R.right.replaceChildren(h('div', { class: 'rb-tabs' }, tab('activity', t('Activity') + (S.proposals.length ? ' (' + S.proposals.length + ')' : '')), tab('links', t('Links')), tab('outline', t('Outline')), tab('graph', t('Graph')), tab('history', t('History'))), body);
   if (S.rbTab === 'activity') return renderActivity(body);
   if (!c) return;
   const d = c.detail;
@@ -897,21 +975,54 @@ function plainExcerpt(md) {
 }
 
 /** Floating preview of a note on the map (click a node). */
-async function showCard(n) {
+/** Floating preview of a note on the map: draggable by its header, resizable, minimizable, scrollable. */
+async function showCard(n, { keep = false } = {}) {
   const gv = S.gv, box = R.cardBox;
   if (!gv || !box) return;
   let note;
   try { note = await api('GET', API('/notes/' + enc(n.id))); } catch (e) { return toast(e.message, 'error'); }
-  gv.setCurrent(n.id);
-  const pos = gv.screenPos(n);
-  const card = h('div', { class: 'node-card', style: { left: clamp(pos.x + 16, 8, gv.w - 268) + 'px', top: clamp(pos.y - 24, 8, gv.h - 210) + 'px' } },
-    h('div', { class: 'row', style: { justifyContent: 'space-between', alignItems: 'flex-start' } }, h('b', {}, note.title), h('button', { class: 'icon-btn', 'aria-label': t('Close'), onclick: () => box.replaceChildren() }, '✕')),
-    h('div', { class: 'muted' }, note.path),
-    note.tags.length ? h('div', { style: { margin: '4px 0' } }, ...note.tags.map((tg) => h('span', { class: 'tag-pill', onclick: () => searchFor('tag:' + tg) }, '#' + tg))) : null,
-    h('p', { class: 'card-ex' }, plainExcerpt(note.content) || '…'),
-    h('div', { class: 'muted' }, note.backlinks.length + ' backlinks · ' + (note.links.length + note.unresolved.length) + ' links'),
-    h('div', { class: 'row end', style: { marginTop: '8px' } }, h('button', { class: 'btn small primary', onclick: () => openNote(note.path) }, t('Open document'))));
+  if (!keep) gv.setCurrent(note.path);
+  const old = box.firstChild;
+  let left, top, width, height;
+  if (keep && old) { ({ left, top, width, height } = old.style); } else {
+    const pos = n.x != null ? gv.screenPos(n) : { x: gv.w / 2, y: gv.h / 2 };
+    const W = 300;
+    // open on the side of the node with more free room so the card does not cover it
+    left = clamp(pos.x > gv.w / 2 ? pos.x - W - 24 : pos.x + 24, 8, Math.max(8, gv.w - W - 8)) + 'px';
+    top = clamp(pos.y - 40, 8, Math.max(8, gv.h - 280)) + 'px';
+    width = W + 'px'; height = Math.min(360, gv.h - 16) + 'px';
+  }
+  const body = h('div', { class: 'card-body preview', onclick: (e) => {
+    const a = e.target.closest('a.internal-link');
+    if (a) { e.preventDefault(); if (a.dataset.path) showCard({ id: a.dataset.path }, { keep: true }); return; }
+    const tg = e.target.closest('a.tag');
+    if (tg) { e.preventDefault(); searchFor('tag:' + tg.dataset.tag); }
+  } });
+  body.innerHTML = renderMarkdown(note.content, mdCtx(note.path));
+  const head = h('div', { class: 'card-head', title: t('Drag to move') },
+    h('b', {}, note.title), h('span', { class: 'grow' }),
+    h('button', { class: 'icon-btn', title: t('Minimize'), 'aria-label': t('Minimize'), onclick: () => card.classList.toggle('min') }, '▾'),
+    h('button', { class: 'icon-btn', title: t('Close'), 'aria-label': t('Close'), onclick: () => box.replaceChildren() }, '✕'));
+  const card = h('div', { class: 'node-card', style: { left, top, width, height } }, head,
+    h('div', { class: 'muted card-meta' }, note.path + ' · ' + note.backlinks.length + ' backlinks · ' + (note.links.length + note.unresolved.length) + ' links'),
+    note.tags.length ? h('div', { class: 'card-tags' }, ...note.tags.map((tg) => h('span', { class: 'tag-pill', onclick: () => searchFor('tag:' + tg) }, '#' + tg))) : null,
+    body,
+    h('div', { class: 'card-foot' }, h('button', { class: 'btn small primary', onclick: () => openNote(note.path) }, t('Open document'))));
+  head.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) return;
+    e.preventDefault();
+    head.setPointerCapture(e.pointerId);
+    const sx = e.clientX, sy = e.clientY, sl = card.offsetLeft, st = card.offsetTop;
+    const move = (ev) => {
+      card.style.left = clamp(sl + ev.clientX - sx, 0, Math.max(0, box.clientWidth - 80)) + 'px';
+      card.style.top = clamp(st + ev.clientY - sy, 0, Math.max(0, box.clientHeight - 40)) + 'px';
+    };
+    const up = () => { head.removeEventListener('pointermove', move); head.removeEventListener('pointerup', up); };
+    head.addEventListener('pointermove', move);
+    head.addEventListener('pointerup', up);
+  });
   box.replaceChildren(card);
+  hydrateEmbeds(body, [note.path]);
 }
 
 function renderDock(gv) {
@@ -999,13 +1110,13 @@ async function tokensDialog() {
   const draw = async (fresh) => {
     const { tokens } = await api('GET', '/api/tokens');
     const name = h('input', { class: 'input', placeholder: t('Token name, e.g. “Claude Desktop”') });
-    const scope = h('select', { class: 'input' }, h('option', { value: 'rw' }, t('Read + write')), h('option', { value: 'r' }, t('Read only')));
+    const scope = h('select', { class: 'input' }, h('option', { value: 'rp' }, t('Read + propose (changes need approval)')), h('option', { value: 'rw' }, t('Read + write')), h('option', { value: 'r' }, t('Read only')));
     const origin = location.origin;
     const snippet = fresh && JSON.stringify({ mcpServers: { vaultfree: { command: 'node', args: ['/path/to/vaultfree/bin/vaultfree.js', 'mcp', '--url', origin, '--token', fresh.token, '--vault', V()] } } }, null, 2);
     box.replaceChildren(
-      h('p', { class: 'muted' }, 'Tokens let AI agents and scripts use the REST API or the MCP server (see /llms.txt). The token is shown only once.'),
+      h('p', { class: 'muted' }, 'Tokens let AI agents and scripts use the REST API or the MCP server (see /llms.txt). The token is shown only once. Agents with “Read + propose” can only suggest changes; you review and accept them in the Activity panel.'),
       h('div', { class: 'row' }, name, scope, h('button', { class: 'btn primary', onclick: async () => {
-        try { const created = await api('POST', '/api/tokens', { name: name.value || 'token', scopes: scope.value === 'r' ? ['read'] : ['read', 'write'] }); draw(created); } catch (e) { toast(e.message, 'error'); }
+        try { const created = await api('POST', '/api/tokens', { name: name.value || 'token', scopes: scope.value === 'r' ? ['read'] : scope.value === 'rp' ? ['read', 'propose'] : ['read', 'write'] }); draw(created); } catch (e) { toast(e.message, 'error'); }
       } }, t('Create'))),
       fresh && h('div', {}, h('b', {}, 'New token (copy it now):'), h('pre', { class: 'snippet' }, fresh.token), h('b', {}, 'MCP client config:'), h('pre', { class: 'snippet' }, snippet)),
       h('table', { class: 'table' }, h('tr', {}, h('th', {}, t('Name')), h('th', {}, t('Scopes')), h('th', {}, t('Last used')), h('th')),
@@ -1239,6 +1350,9 @@ document.addEventListener('keydown', (e) => {
   else if (mod && k === 'n') { e.preventDefault(); newNote(); }
   else if (mod && e.shiftKey && k === 'f') { e.preventDefault(); S.sbTab = 'search'; renderSidebar(); $('#search-input')?.focus(); }
 });
+
+// Esc closes the floating note card on the map
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && R.cardBox?.firstChild && !document.querySelector('.modal-back')) R.cardBox.replaceChildren(); });
 
 // Never fail silently: show unexpected errors (e.g. a dialog that could not load)
 window.addEventListener('unhandledrejection', (e) => { console.error(e.reason); toast(String(e.reason?.message || e.reason), 'error'); });

@@ -28,6 +28,20 @@ function lcsMatch(a, b) {
   return match;
 }
 
+/** Line diff: [{t:'same'|'add'|'del', line}] from oldText to newText. */
+export function diffLines(oldText, newText) {
+  const A = oldText.split('\n'), B = newText.split('\n');
+  const m = lcsMatch(A, B);
+  if (!m) return [...A.map((line) => ({ t: 'del', line })), ...B.map((line) => ({ t: 'add', line }))];
+  const out = [];
+  let j = 0;
+  for (let i = 0; i < A.length; i++) {
+    if (m[i] >= 0) { while (j < m[i]) out.push({ t: 'add', line: B[j++] }); out.push({ t: 'same', line: A[i] }); j = m[i] + 1; } else out.push({ t: 'del', line: A[i] });
+  }
+  while (j < B.length) out.push({ t: 'add', line: B[j++] });
+  return out;
+}
+
 const same = (x, y) => x.length === y.length && x.every((v, i) => v === y[i]);
 
 /** @returns {{text:string, conflict:boolean}} */

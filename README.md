@@ -42,7 +42,7 @@ Plain Markdown files · wikilinks & backlinks · live graph · teams without los
 | **Teamwork** | Roles (viewer / editor / owner), live updates (SSE), an **Activity** panel (who changed what, automatic merges, AI-agent writes tagged `API`, who is online), full version history with restore |
 | **No lost edits** | Every save carries the revision it started from; stale saves are three-way merged, real conflicts are shown, never overwritten |
 | **Sharing** | One-click invite links (read or edit, expiry optional), copy a vault to your own, optional public HTTPS link |
-| **AI** | REST API, MCP (stdio + HTTP), `/context`, `/chunks`, JSONL export, `/llms.txt` |
+| **AI** | REST API, MCP (stdio + HTTP), **agent proposals with human review**, `/context`, `/chunks`, JSONL export, `/llms.txt` |
 | **Integrity** | Content-addressed history (SHA-256), hash-chained audit log, `vaultfree verify` |
 | **Interface** | Map / Document switch, resizable panels, light/dark themes, command palette, quick switcher, English & Spanish |
 
@@ -93,7 +93,7 @@ Roles: **viewer** reads, **editor** writes, **owner** manages members, invites a
 
 VaultFree treats agents as normal collaborators: same permissions, same conflict-safe writes.
 
-1. Create a token in the app (**🔑**). Tokens are read-only or read+write and can be limited to vaults.
+1. Create a token in the app (**🔑**). Tokens are read-only, **read + propose**, or read + write, and can be limited to vaults.
 2. Connect a client.
 
 **MCP over HTTP** (Claude Code, Cursor and other clients that support HTTP MCP with a bearer header):
@@ -113,7 +113,9 @@ claude mcp add --transport http vaultfree http://localhost:3000/mcp \
 } } }
 ```
 
-Tools: `vaultfree_search`, `vaultfree_read_note`, `vaultfree_write_note`, `vaultfree_append_note`, `vaultfree_graph_neighbors`, `vaultfree_get_context`, `vaultfree_list_notes`, `vaultfree_list_tags`, `vaultfree_list_vaults`.
+**Agents propose, people approve.** Give an agent a *read + propose* token: it can read everything but cannot change a note directly. It calls `vaultfree_propose_change` (or `POST /proposals`) with the new text and a short message; the proposal appears in the **Activity** panel with a coloured diff, and a person accepts it (merged safely with any edits made meanwhile) or dismisses it. Nothing is written until someone approves.
+
+Tools: `vaultfree_propose_change`, `vaultfree_list_proposals`, `vaultfree_search`, `vaultfree_read_note`, `vaultfree_write_note`, `vaultfree_append_note`, `vaultfree_graph_neighbors`, `vaultfree_get_context`, `vaultfree_list_notes`, `vaultfree_list_tags`, `vaultfree_list_vaults`.
 
 **REST** for scripts and pipelines — see [docs/API.md](docs/API.md). Handy endpoints: `/context?q=…` (an LLM-ready pack of the most relevant notes), `/chunks` (heading-aware RAG chunks), `/export?format=jsonl`. Agents can read `/llms.txt` for a machine-readable summary.
 
@@ -193,6 +195,7 @@ CI runs the tests on Linux and Windows (Node 20 and 22) and builds the Docker im
 - [ ] Live co-editing (CRDT) beyond merge-on-save
 - [ ] OAuth for remote MCP clients
 - [ ] Plugin API and canvas boards
+- [ ] Per-agent identities (named tokens shown in the feed)
 - [x] Graph, wikilinks, backlinks · multi-user merge · invites · folders · MCP stdio + HTTP · EN/ES
 
 ## Contributing

@@ -1,6 +1,7 @@
 // A vault is a plain folder of Markdown files (openable directly in Obsidian)
 // plus a hidden `.vaultfree/` folder holding history, trash, metadata and audit log.
 import fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { VaultFreeError, KeyedMutex, normalizePath, sha256 } from './util.js';
@@ -248,7 +249,7 @@ export class Vault extends EventEmitter {
     this.emit('change', { type: 'write', path: p, rev, user, op });
   }
 
-  async append(rawPath, text, { user = 'system', createIfMissing = true } = {}) {
+  async append(rawPath, text, { user = 'system', createIfMissing = true, op = 'append' } = {}) {
     const p = normalizePath(rawPath);
     return this.locks.run(p, async () => {
       await this._sync(p);
@@ -258,7 +259,7 @@ export class Vault extends EventEmitter {
       const sep = prev && !prev.endsWith('\n') ? '\n' : '';
       const final = prev + sep + text + (text.endsWith('\n') ? '' : '\n');
       if (Buffer.byteLength(final) > MAX_NOTE_BYTES) throw new VaultFreeError(413, 'too_large', 'Note exceeds 2 MB');
-      await this._store(p, final, user, 'append');
+      await this._store(p, final, user, op);
       return { path: p, rev: sha256(final), created: !cur };
     });
   }
@@ -361,6 +362,83 @@ export class Vault extends EventEmitter {
     const p = normalizePath(rawPath, { note: false });
     if (!this.files.has(p)) throw new VaultFreeError(404, 'not_found', 'File not found');
     return fsp.readFile(this.abs(p));
+  }
+
+  // ---- proposals: agents propose a change, a person accepts or dismisses it ----
+  async _loadProposals() {
+    try { return JSON.parse(await fsp.readFile(path.join(this.kdir, 'proposals.json'), 'utf8')); } catch { return []; }
+  }
+  async _saveProposals(list) { await this._atomic(path.join(this.kdir, 'proposals.json'), JSON.stringify(list, null, 1)); }
+
+  async propose({ path: raw, content, append, baseRev = null, message = '', author = 'system' }) {
+    const p = normalizePath(raw);
+    if ((content == null) === (append == null)) throw new VaultFreeError(400, 'invalid_content', 'Send either content (whole note) or append (text to add)');
+    const body = content ?? append;
+    if (typeof body !== 'string' || !body.length) throw new VaultFreeError(400, 'invalid_content', 'The proposed text must be a non-empty string');
+    if (Buffer.byteLength(body) > MAX_NOTE_BYTES) throw new VaultFreeError(413, 'too_large', 'Proposal exceeds 2 MB');
+    return this.locks.run('__proposals', async () => {
+      await this._sync(p);
+      const list = await this._loadProposals();
+      if (list.filter((x) => x.status === 'open').length >= 200) throw new VaultFreeError(429, 'too_many_proposals', 'Too many open proposals. Review some first.');
+      const cur = this.index.notes.get(p);
+      const kind = append != null ? 'append' : cur ? 'update' : 'create';
+      let base = null;
+      if (kind === 'update') {
+        base = baseRev ?? cur.rev;
+        if (base !== cur.rev && (await this.getObject(base)) == null) throw new VaultFreeError(400, 'unknown_base', 'baseRev is not a known version of this note');
+      }
+      const prop = {
+        id: randomUUID().slice(0, 8), path: p, kind, ...(kind === 'append' ? { append: body } : { content: body }), baseRev: base,
+        message: String(message || '').slice(0, 500), author, createdAt: Date.now(), status: 'open',
+      };
+      list.push(prop);
+      await this._saveProposals(list);
+      this.audit.append({ user: author, action: 'propose', path: p, rev: '' });
+      this.emit('change', { type: 'proposal', id: prop.id, status: 'open', path: p, user: author });
+      return this._publicProposal(prop);
+    });
+  }
+
+  _publicProposal({ content, append, ...rest }) { return { ...rest, size: (content ?? append ?? '').length }; }
+
+  async listProposals(status = '') {
+    const list = await this._loadProposals();
+    return list.filter((x) => !status || x.status === status).sort((a, b) => b.createdAt - a.createdAt).map((x) => this._publicProposal(x));
+  }
+
+  async getProposal(id) {
+    const x = (await this._loadProposals()).find((p) => p.id === id);
+    if (!x) throw new VaultFreeError(404, 'not_found', 'Proposal not found');
+    await this.locks.run(x.path, () => this._sync(x.path));
+    const cur = this.index.notes.get(x.path);
+    return { proposal: x, current: cur ? { rev: cur.rev, content: cur.content } : null, base: x.kind === 'update' ? await this.getObject(x.baseRev) : null };
+  }
+
+  async decideProposal(id, decision, { user = 'system', reason = '' } = {}) {
+    return this.locks.run('__proposals', async () => {
+      const list = await this._loadProposals();
+      const x = list.find((p) => p.id === id);
+      if (!x) throw new VaultFreeError(404, 'not_found', 'Proposal not found');
+      if (x.status !== 'open') throw new VaultFreeError(409, 'already_decided', 'This proposal was already ' + x.status);
+      if (decision === 'accept') {
+        let r;
+        try {
+          if (x.kind === 'append') r = await this.append(x.path, x.append, { user, createIfMissing: true, op: 'proposal' });
+          else r = await this.write(x.path, x.content, { baseRev: x.kind === 'update' ? x.baseRev : null, user, op: 'proposal' });
+        } catch (e) {
+          if (e.code === 'base_rev_required') throw new VaultFreeError(409, 'exists', 'A note with this name now exists. Dismiss this proposal and ask the agent to update the note instead.');
+          throw e;
+        }
+        x.appliedRev = r.rev; x.merged = !!r.merged;
+      }
+      x.status = decision === 'accept' ? 'accepted' : 'rejected';
+      x.decidedBy = user; x.decidedAt = Date.now();
+      if (reason) x.reason = String(reason).slice(0, 300);
+      await this._saveProposals(list);
+      if (decision !== 'accept') this.audit.append({ user, action: 'reject-proposal', path: x.path, rev: '' });
+      this.emit('change', { type: 'proposal', id, status: x.status, path: x.path, user });
+      return this._publicProposal(x);
+    });
   }
 
   // ---- trash ----

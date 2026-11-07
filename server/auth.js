@@ -171,7 +171,7 @@ export class Auth {
     const raw = 'vf_' + randomBytes(32).toString('base64url');
     const t = {
       id: randomUUID(), userId, name: String(name || 'token').slice(0, 60), hash: sha256(raw),
-      scopes: scopes.filter((s) => s === 'read' || s === 'write'), vaults, createdAt: Date.now(), lastUsed: 0,
+      scopes: scopes.filter((s) => s === 'read' || s === 'write' || s === 'propose'), vaults, createdAt: Date.now(), lastUsed: 0,
     };
     if (!t.scopes.includes('read')) t.scopes.push('read');
     this.state.tokens.push(t);

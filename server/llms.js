@@ -19,6 +19,12 @@ Send \`Authorization: Bearer vf_...\` (create a token in the UI: Account -> API 
 - GET  /export?format=jsonl        full export
 - GET  /history?path=              revisions;  POST /ops/restore {path, rev}
 
+## Proposals (agents propose, people approve)
+A token may have the \`propose\` scope instead of \`write\`: it can read and create proposals but never change notes directly.
+- POST /proposals                  {path, content | append, baseRev?, message}  → a pending change
+- GET  /proposals?status=open      list;  GET /proposals/{id}  details with the base text
+A person reviews the diff in the app and accepts (merged safely, like any edit) or dismisses it.
+
 ## Concurrency
 Every note has a \`rev\` (sha-256 of its content). Updates send \`baseRev\`. If the note changed meanwhile the server three-way merges;
 on a real conflict it returns HTTP 409 with \`current\`, \`yours\` and \`mergedWithMarkers\` - re-read, reconcile, retry. Nothing is silently overwritten.
