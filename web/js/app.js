@@ -34,7 +34,7 @@ async function boot() {
   S.cfg = cfg;
   try {
     const me = await api('GET', '/api/auth/me');
-    S.user = me.user; S.canCreate = me.canCreateVaults;
+    S.user = me.user; S.canCreate = me.canCreateVaults; S.demoExpires = me.demoExpiresAt;
     await enterWorkspace();
     await handleInvite();
   } catch (e) {
@@ -90,6 +90,15 @@ async function renderAuth(cfg, invite = null) {
     inviteErr && h('div', { class: 'err' }, inviteErr),
     u, register && d, p, err,
     h('button', { class: 'btn primary' }, register ? t('Create account') : t('Sign in')),
+    cfg.demo && !invite && h('button', { type: 'button', class: 'btn', onclick: async (e) => {
+      e.target.disabled = true; err.textContent = '';
+      try {
+        const r = await api('POST', '/api/demo/start', {});
+        lsSet('vault', r.vault); S.user = r.user; S.canCreate = false; S.demoExpires = r.expiresAt;
+        await enterWorkspace(); await openNote('Try this first.md');
+      } catch (x) { err.textContent = x.message; e.target.disabled = false; }
+    } }, t('Try the demo')),
+    cfg.demo && !invite && h('div', { class: 'muted small' }, tf.demoHint(cfg.demo.ttlHours)),
     h('a', { href: '#', onclick: (e) => { e.preventDefault(); setLang(lang === 'es' ? 'en' : 'es'); location.reload(); } }, lang === 'es' ? 'English' : 'Español'),
     (cfg.allowSignup || invite) && !cfg.needsSetup && h('a', { href: '#', onclick: (e) => { e.preventDefault(); register = !register; draw(); } }, register ? t('I already have an account') : t('Create an account')));
     root.replaceChildren(h('div', { class: 'auth' }, f));
@@ -139,7 +148,9 @@ function buildShell() {
     btn('⏻', tf.signOut(S.user.username), logout));
   const ws = h('div', { class: 'ws', id: 'ws' }, R.ribbon, R.sidebar, R.main, R.right,
     h('div', { class: 'rs rs-left', title: t('Drag to resize') }), h('div', { class: 'rs rs-right', title: t('Drag to resize') }));
-  $('#app').replaceChildren(ws);
+  $('#app').replaceChildren(ws, S.demoExpires && h('div', { class: 'demo-banner', title: t('Run your own copy with Docker to keep your notes') },
+    tf.demoBanner(Math.max(1, Math.round((S.demoExpires - Date.now()) / 3600000))), ' · ',
+    h('a', { href: 'https://github.com/Pedrodva/vaultfree', target: '_blank', rel: 'noopener' }, 'GitHub')) || '');
   applyPanels(ws);
   wireResizers(ws);
 }

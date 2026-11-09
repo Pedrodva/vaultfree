@@ -30,6 +30,11 @@ Clients that support HTTP MCP can connect to `https://<your-address>/mcp` with `
 ## Invite links
 Vault owner → 🔗 → create link. Invited users need no admin help and sign-up can stay closed. Links are single-use by default, can be set to expire (1 day to 30 days) or to never expire, and can be revoked.
 
+## Public demo mode
+`VAULTFREE_DEMO=true` turns a server into a public playground. The sign-in screen gets a **Try the demo** button: each click creates a throwaway account that owns its own sandbox vault, seeded with sample notes, a teammate's edit and an AI-agent proposal waiting for review. Visitors can edit, rename, accept proposals and create API tokens, but cannot create more vaults, upload files, invite people, copy vaults or reach admin features; requests are capped at 256 KB and sandboxes at 300 notes. Sandboxes and their accounts are erased after `VAULTFREE_DEMO_TTL_HOURS` (24) and at most `VAULTFREE_DEMO_MAX` (200) exist at once (the oldest is dropped first). Self-registration is always off in demo mode; create an admin with `vaultfree user add` if you need one.
+
+One click on Render (free plan, no disk needed): [deploy](https://render.com/deploy?repo=https://github.com/Pedrodva/vaultfree) uses [`render.yaml`](../render.yaml). Locally: `VAULTFREE_DEMO=true npm start`.
+
 ## Behind another HTTPS proxy (Caddy/nginx)
 ```
 notes.example.com {
@@ -50,6 +55,8 @@ Set `VAULTFREE_TRUST_PROXY=1` and `VAULTFREE_SECURE_COOKIES=1`. SSE needs respon
 | `VAULTFREE_TUNNEL_TOKEN` | empty | run a named Cloudflare tunnel (see above) |
 | `VAULTFREE_TRUST_PROXY` | `false` | use `X-Forwarded-*` |
 | `VAULTFREE_SECURE_COOKIES` | `false` | add `Secure` to cookies |
+| `VAULTFREE_DEMO` | `false` | public demo mode (see above) |
+| `VAULTFREE_DEMO_TTL_HOURS` / `VAULTFREE_DEMO_MAX` | `24` / `200` | sandbox lifetime / how many at once |
 
 ## Operations
 - `vaultfree verify` — checks every note against its hash, every history object, and the audit chain.

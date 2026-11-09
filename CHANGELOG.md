@@ -5,6 +5,7 @@ All notable changes to this project are documented here. Format based on [Keep a
 ## [0.1.0] — first public release
 
 ### Added
+- Public demo mode (`VAULTFREE_DEMO=true`): one-click throwaway sandbox vaults with sample notes and a pending agent proposal, guard rails for public servers, automatic erasure; one-click Render deploy (`render.yaml`)
 - Markdown vaults stored as plain files; wikilinks, embeds, nested tags, frontmatter, backlinks, rename with link rewriting
 - Writes and proposals made with an API token are attributed to the token's name (`user(api:token name)`), so several agents are told apart in the feed and in proposals
 - Import files or a whole folder (e.g. an Obsidian vault) from the file panel or by drag and drop; existing notes are skipped, hidden folders are ignored

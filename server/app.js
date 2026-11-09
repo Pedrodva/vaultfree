@@ -10,6 +10,7 @@ import { MAX_FILE_BYTES } from './vault.js';
 import { LLMS_TXT } from './llms.js';
 import { Tunnel } from './tunnel.js';
 import { createMcpHandler } from './mcp.js';
+import { Demo } from './demo.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = path.join(ROOT, 'web');
@@ -29,6 +30,11 @@ export async function createApp(config) {
   const vaults = await new VaultManager(config.dataDir).load();
   const router = new Router();
   const tunnel = new Tunnel();
+  const demo = config.demo ? new Demo({ auth, vaults, dataDir: config.dataDir, ttlHours: config.demoTtlHours, max: config.demoMaxSandboxes }) : null;
+  const demoSweep = demo && setInterval(() => demo.sweep().catch((e) => console.error('demo sweep:', e.message)), 10 * 60 * 1000);
+  demoSweep?.unref?.();
+  // what a throwaway demo account may not do (it could be abused on a public server)
+  const DEMO_BLOCKED = [/^POST \/api\/vaults$/, /\/ops\/fork$/, /^POST \/api\/vaults\/[^/]+\/files\//, /\/invites(\/|$)/, /\/members\//, /^\w+ \/api\/admin\//, /^POST \/api\/auth\/password$/];
   const presence = new Map(); // vaultId -> Map(userId -> {username, displayName, path, ts})
   const R = (m, p, h, opts = {}) => router.add(m, p, Object.assign(h, opts));
 
@@ -55,7 +61,7 @@ export async function createApp(config) {
 
   // ---------- public ----------
   R('GET', '/api/health', (ctx) => ctx.json(200, { ok: true, version: VERSION }));
-  R('GET', '/api/config', (ctx) => ctx.json(200, { version: VERSION, needsSetup: !auth.hasUsers, allowSignup: config.allowSignup, publicUrl: config.publicUrl || null }));
+  R('GET', '/api/config', (ctx) => ctx.json(200, { version: VERSION, needsSetup: !auth.hasUsers && !demo, allowSignup: config.allowSignup && !demo, demo: demo ? { ttlHours: config.demoTtlHours } : null, publicUrl: config.publicUrl || null }));
 
   const registerUser = async (ctx, role) => {
     const b = ctx.body;
@@ -68,6 +74,7 @@ export async function createApp(config) {
   };
 
   R('POST', '/api/auth/register', async (ctx) => {
+    if (demo) throw new VaultFreeError(403, 'signup_disabled', 'This is a public demo: use "Try the demo" instead.');
     const first = !auth.hasUsers;
     if (!first && !config.allowSignup) throw new VaultFreeError(403, 'signup_disabled', 'Sign-up is disabled. Ask an admin to create your account.');
     const user = await registerUser(ctx, first ? 'admin' : 'user');
@@ -80,7 +87,15 @@ export async function createApp(config) {
     if (c) await auth.logout(c);
     ctx.json(200, { ok: true }, { 'set-cookie': cookieHeader(ctx.req, '', 0) });
   });
-  R('GET', '/api/auth/me', (ctx) => ctx.json(200, { user: auth.publicUser(needUser(ctx)), via: ctx.auth.via, canCreateVaults: config.usersCanCreateVaults || ctx.auth.user.role === 'admin' }));
+  R('GET', '/api/auth/me', (ctx) => ctx.json(200, { user: auth.publicUser(needUser(ctx)), via: ctx.auth.via, canCreateVaults: !ctx.auth.user.demo && (config.usersCanCreateVaults || ctx.auth.user.role === 'admin'), demoExpiresAt: demo?.expiresAt(ctx.auth.user) || null }));
+
+  // public demo: one click → a throwaway account with its own sandbox vault
+  R('POST', '/api/demo/start', async (ctx) => {
+    if (!demo) throw new VaultFreeError(404, 'not_found', 'Demo mode is off');
+    const c = await demo.start(clientIp(ctx.req));
+    const s = await auth.login(c.username, c.password, clientIp(ctx.req));
+    ctx.json(200, { user: s.user, vault: c.vault, expiresAt: c.expiresAt }, { 'set-cookie': cookieHeader(ctx.req, s.token, demo.ttlHours * 3600) });
+  });
 
   R('POST', '/api/auth/password', async (ctx) => {
     const u = needUser(ctx);
@@ -381,13 +396,21 @@ export async function createApp(config) {
           if (!ok) throw new VaultFreeError(403, 'csrf', 'Cross-origin request blocked');
         } else if (!a.scopes.includes('write') && url.pathname !== '/mcp' && !isProposalCreate(a, req, url)) throw new VaultFreeError(403, 'forbidden', 'Token lacks write scope'); // /mcp enforces scopes per tool call via the REST API
       }
+      if (a && mutating && a.user.demo) {
+        const sig = req.method + ' ' + url.pathname;
+        if (DEMO_BLOCKED.some((re) => re.test(sig))) throw new VaultFreeError(403, 'demo_limit', 'Not available in the public demo. Run your own VaultFree to use this.');
+        const nm = /^\/api\/vaults\/([^/]+)\/notes\/(.+)$/.exec(url.pathname);
+        const vv = nm && vaults.get(decodeURIComponent(nm[1]));
+        if (req.method === 'PUT' && vv && vv.index.notes.size >= 300) throw new VaultFreeError(403, 'demo_limit', 'Demo sandboxes hold up to 300 notes');
+        if (Number(req.headers['content-length'] || 0) > 256 * 1024) throw new VaultFreeError(413, 'too_large', 'Demo requests are limited to 256 KB');
+      }
       const ctx = {
         req, res, auth: a, params: m.params, query: url.searchParams, body: {},
         json: (status, body, headers) => sendJson(res, status, body, headers),
       };
       if (mutating) {
         if (m.handler.raw) ctx.rawBody = await readBody(req, MAX_FILE_BYTES);
-        else ctx.body = await readJson(req);
+        else ctx.body = await readJson(req, a?.user.demo ? 256 * 1024 : undefined);
       }
       await m.handler(ctx);
     } catch (e) {
@@ -406,7 +429,7 @@ export async function createApp(config) {
       r(server.address());
     })),
     close: async () => {
-      tunnel.stop();
+      tunnel.stop(); if (demoSweep) clearInterval(demoSweep);
       closeVaults(); server.closeAllConnections?.(); await new Promise((r) => server.close(r)); await flushAll(); await auth.queue; },
   };
 }

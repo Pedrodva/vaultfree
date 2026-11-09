@@ -1,0 +1,18 @@
+# One-click public demo on Render (https://render.com/deploy?repo=https://github.com/Pedrodva/vaultfree).
+# Every visitor gets a throwaway sandbox vault; nothing needs to persist, so the free plan
+# (no disk, sleeps when idle) is enough. For a real team server use docker compose instead.
+services:
+  - type: web
+    name: vaultfree-demo
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: VAULTFREE_DEMO
+        value: "true"
+      - key: VAULTFREE_PORT
+        value: "10000"
+      - key: VAULTFREE_TRUST_PROXY
+        value: "true"
+      - key: VAULTFREE_SECURE_COOKIES
+        value: "true"

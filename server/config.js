@@ -16,6 +16,9 @@ export function loadConfig(env = process.env, overrides = {}) {
     usersCanCreateVaults: bool(env.VAULTFREE_USERS_CAN_CREATE_VAULTS, true),
     trustProxy: bool(env.VAULTFREE_TRUST_PROXY, https),
     secureCookies: bool(env.VAULTFREE_SECURE_COOKIES, https),
+    demo: bool(env.VAULTFREE_DEMO, false),
+    demoTtlHours: Math.max(1, Number(env.VAULTFREE_DEMO_TTL_HOURS) || 24),
+    demoMaxSandboxes: Math.max(1, Number(env.VAULTFREE_DEMO_MAX) || 200),
     ...overrides,
   };
 }

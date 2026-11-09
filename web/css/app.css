@@ -186,3 +186,9 @@ pre.snippet { background: var(--bg); border: 1px solid var(--border); border-rad
   .ws .rightbar { display: none; } .ws.show-sb .main { display: none; } .ws:not(.show-sb) .sidebar { display: none; }
   .preview, #editor { padding: 16px; } .graph-panel { width: 200px; }
 }
+
+/* public demo */
+.demo-banner { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 50; padding: 5px 12px; border-radius: 999px;
+  background: var(--accent, #7c6cf0); color: #fff; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.3); pointer-events: auto; }
+.demo-banner a { color: #fff; text-decoration: underline; }
+.auth .small { font-size: 12px; }

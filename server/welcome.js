@@ -64,3 +64,89 @@ tags: [project]
 Part of [[Welcome]]. Uses ideas from [[AI Integration]].
 `,
 };
+
+// Extra notes for public demo sandboxes: a small team knowledge base with several collections.
+export const DEMO_NOTES = {
+  'Try this first.md': `---
+tags: [start]
+---
+# Try this first
+
+This is your own sandbox: edit anything, nothing here is shared, and it is erased after a day.
+
+1. Open the **Activity** panel: an AI agent ("research agent") proposed a change to [[Projects/Roadmap]]. Review the diff and accept or dismiss it.
+2. Open [[Projects/Launch plan]] in two browser tabs, edit different lines in each and save: the edits are merged, nothing is lost.
+3. Rename [[People/Ana]] — every link to her note is updated.
+4. Press **Ctrl+G** for the map and click a collection in the dock.
+
+Start from [[Welcome]].
+`,
+  'Projects/Launch plan.md': `---
+tags: [project, team]
+---
+# Launch plan
+
+Owner: [[People/Ana]] · Reviewer: [[People/Marco]]
+
+- Announce on the blog, see [[Research/Positioning]]
+- Demo for the [[Meetings/2026-11-03 Weekly|weekly meeting]]
+- Agents draft release notes through [[AI Integration|proposals]]
+`,
+  'Research/Positioning.md': `---
+tags: [research]
+---
+# Positioning
+
+Self-hosted, plain Markdown, built for teams **and** AI agents.
+Competitors keep notes in a database; we keep files you can open in any editor.
+Interview notes: [[Research/User interviews]]. Feeds the [[Projects/Launch plan]].
+`,
+  'Research/User interviews.md': `---
+tags: [research]
+---
+# User interviews
+
+- "I want my agent to suggest edits, not overwrite my notes." → [[Collaboration]]
+- "Our wiki is a black box; I want files." → [[Research/Positioning]]
+- Run by [[People/Marco]].
+`,
+  'Research/Embeddings.md': `---
+tags: [research, ai]
+---
+# Embeddings
+
+Notes on adding semantic search to the [[Projects/Roadmap]]. Chunks from \`/chunks\` are already heading-aware, see [[AI Integration]].
+`,
+  'Meetings/2026-11-03 Weekly.md': `---
+tags: [meeting]
+---
+# Weekly — 3 Nov
+
+Present: [[People/Ana]], [[People/Marco]]
+
+- Launch date agreed, see [[Projects/Launch plan]]
+- Follow-up: record a short demo video
+`,
+  'Meetings/2026-10-27 Weekly.md': `---
+tags: [meeting]
+---
+# Weekly — 27 Oct
+
+- Reviewed [[Research/User interviews]]
+- Decided to prioritise [[Research/Embeddings]] after launch
+`,
+  'People/Ana.md': `---
+tags: [person]
+---
+# Ana
+
+Product lead. Owns the [[Projects/Launch plan]].
+`,
+  'People/Marco.md': `---
+tags: [person]
+---
+# Marco
+
+Research. Ran the [[Research/User interviews]].
+`,
+};

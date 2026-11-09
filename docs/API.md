@@ -9,6 +9,7 @@ Auth: browser session cookie, or `Authorization: Bearer vf_<token>` (create unde
 | POST | `/api/auth/register` | first user → admin; later only if `VAULTFREE_ALLOW_SIGNUP` |
 | POST | `/api/auth/login` · `/logout` | sets HttpOnly cookie |
 | GET | `/api/auth/me` | |
+| POST | `/api/demo/start` | demo mode only: creates a sandbox account + vault and signs in → `{user, vault, expiresAt}` |
 | POST | `/mcp` | MCP over HTTP (JSON-RPC, Streamable HTTP without streaming). Auth: `Authorization: Bearer vf_…` only (cookies are rejected) |
 | GET/POST | `/api/tokens` · DELETE `/api/tokens/:id` | |
 | POST | `/api/auth/password` | `{current, next}`; session only; signs out other sessions |

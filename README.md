@@ -47,6 +47,11 @@ Plain Markdown files · wikilinks & backlinks · live graph · teams without los
 | **Integrity** | Content-addressed history (SHA-256), hash-chained audit log, `vaultfree verify` |
 | **Interface** | Map / Document switch, resizable panels, light/dark themes, command palette, quick switcher, English & Spanish |
 
+## Try it
+
+- **In your browser:** run a public demo in one click on Render's free plan: [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Pedrodva/vaultfree). Visitors press **Try the demo** and get their own sandbox vault (sample notes, a pending AI-agent proposal), erased after 24 h.
+- **On your machine:** one `docker run`, below.
+
 ## Quick start
 
 ### Docker — one command, nothing to clone (recommended)
@@ -156,6 +161,7 @@ scrypt password hashes · HttpOnly SameSite cookies · Origin-based CSRF checks 
 | `VAULTFREE_DOMAIN` | – | docker compose: domain for the `https` profile |
 | `VAULTFREE_BIND` | `127.0.0.1` | docker compose: host interface to publish on |
 | `VAULTFREE_TUNNEL_TOKEN` | – | optional: run a *named* Cloudflare tunnel for a permanent address |
+| `VAULTFREE_DEMO` | `false` | public demo: one-click throwaway sandboxes, erased after 24 h ([details](docs/DEPLOYMENT.md#public-demo-mode)) |
 
 ## Project layout
 

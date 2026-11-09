@@ -54,6 +54,7 @@ export class VaultManager {
     for (let i = 0; ; i++) {
       try { await fs.promises.rename(v.root, dest); break; } catch (e) { if (i >= 5) throw e; await new Promise((r) => setTimeout(r, 200)); }
     }
+    return dest;
   }
 
   /** Copy notes (optionally only a folder) and attachments into a brand-new vault owned by `user`. */

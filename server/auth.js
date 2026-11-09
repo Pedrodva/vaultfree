@@ -89,6 +89,15 @@ export class Auth {
     await this.save();
   }
 
+  /** Removes an account with its sessions, tokens and invites (used for demo sandboxes). */
+  async deleteUser(id) {
+    this.state.users = this.state.users.filter((u) => u.id !== id);
+    this.state.sessions = this.state.sessions.filter((s) => s.userId !== id);
+    this.state.tokens = this.state.tokens.filter((t) => t.userId !== id);
+    this.state.invites = this.state.invites.filter((i) => i.createdBy !== id);
+    await this.save();
+  }
+
   throttle(key) {
     const now = Date.now();
     const a = (this.attempts.get(key) || []).filter((t) => now - t < 15 * 60 * 1000);

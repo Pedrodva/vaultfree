@@ -73,6 +73,7 @@ export const ES = {
   'Cancel': 'Cancelar', 'OK': 'Aceptar', 'Confirm': 'Confirmar', 'Name or folder/name': 'Nombre o carpeta/nombre', 'New vault': 'Nuevo vault',
   'Delete note': 'Eliminar nota', 'Create note': 'Crear nota', 'Join vault': 'Unirse al vault', 'Join': 'Unirse',
   'Find or create a note…': 'Buscar o crear una nota…', 'Command…': 'Comando…',
+  'Try the demo': 'Probar la demo', 'Run your own copy with Docker to keep your notes': 'Instala tu propia copia con Docker para conservar tus notas',
 };
 
 /** Translate a short UI label. Anything without an entry (explanations, user data) stays as is. */
@@ -86,5 +87,7 @@ export const tf = {
   invitePeople: (v) => (lang === 'es' ? `Invitar a “${v}”` : `Invite people to “${v}”`),
   members: (v) => (lang === 'es' ? `Miembros — ${v}` : `Members — ${v}`),
   createNamed: (q) => (lang === 'es' ? `Crear “${q}”` : `Create “${q}”`),
+  demoHint: (hrs) => (lang === 'es' ? `Sin registro: tendrás tu propio vault de prueba, que se borra en ${hrs} h.` : `No sign-up: you get your own sandbox vault, erased after ${hrs} h.`),
+  demoBanner: (hrs) => (lang === 'es' ? `Demo pública: este vault se borra en ${hrs} h` : `Public demo: this vault is erased in ${hrs} h`),
   onlyFolder: (f) => (lang === 'es' ? `Solo la carpeta: ${f}` : `Only folder: ${f}`),
 };
