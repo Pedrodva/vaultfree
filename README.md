@@ -127,6 +127,8 @@ Tools: `vaultfree_propose_change`, `vaultfree_list_proposals`, `vaultfree_search
 
 **REST** for scripts and pipelines — see [docs/API.md](docs/API.md). Handy endpoints: `/context?q=…` (an LLM-ready pack of the most relevant notes), `/chunks` (heading-aware RAG chunks), `/export?format=jsonl`. Agents can read `/llms.txt` for a machine-readable summary.
 
+> Want the design decisions (why plain files, why three-way merge and not a CRDT, why zero dependencies, known limits)? Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## How collaboration stays lossless
 
 1. `GET note` returns `{content, rev}` where `rev` is the SHA-256 of the content.
