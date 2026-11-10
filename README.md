@@ -12,6 +12,8 @@ Plain Markdown files · wikilinks & backlinks · live graph · teams without los
 ![Dependencies: 0](https://img.shields.io/badge/runtime%20dependencies-0-brightgreen)
 ![Docker ready](https://img.shields.io/badge/docker-ready-2496ED)
 
+<img src="docs/img/demo.gif" alt="Demo: start a sandbox, review an AI agent's proposed change, accept it, then explore the map" width="760">
+
 <img src="docs/img/map.jpg" alt="VaultFree map: collections as islands, with a hovered note highlighting its neighbours" width="760">
 
 </div>
