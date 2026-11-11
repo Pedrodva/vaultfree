@@ -6,6 +6,9 @@
 
 Plain Markdown files · wikilinks & backlinks · live graph · teams without lost edits · REST + MCP for AI agents
 
+### 👉 [Try the live demo](https://vaultfree-demo.onrender.com) · no sign-up, your own sandbox
+<sub>Free hosting: if nobody has visited for a while, the first load can take up to a minute to wake up. Sandboxes are erased after 24 h.</sub>
+
 [![CI](https://github.com/Pedrodva/vaultfree/actions/workflows/ci.yml/badge.svg)](https://github.com/Pedrodva/vaultfree/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Node 20+](https://img.shields.io/badge/node-%E2%89%A520-339933)
@@ -51,7 +54,7 @@ Plain Markdown files · wikilinks & backlinks · live graph · teams without los
 
 ## Try it
 
-- **In your browser:** run a public demo in one click on Render's free plan: [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Pedrodva/vaultfree). Visitors press **Try the demo** and get their own sandbox vault (sample notes, a pending AI-agent proposal), erased after 24 h.
+- **In your browser:** open the [live demo](https://vaultfree-demo.onrender.com) and press **Try the demo**. You get your own sandbox vault (sample notes, a pending AI-agent proposal), erased after 24 h. To host your own copy of the demo in one click on Render's free plan: [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Pedrodva/vaultfree).
 - **On your machine:** one `docker run`, below.
 
 ## Quick start
