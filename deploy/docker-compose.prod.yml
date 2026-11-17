@@ -1,0 +1,19 @@
+# One always-on VaultFree node (primary or standby). Used by /opt/vaultfree/*.sh on the server.
+# Config comes from /opt/vaultfree/.env (written by install-node.sh).
+services:
+  vaultfree:
+    image: ghcr.io/pedrodva/vaultfree:${VAULTFREE_VERSION:?set VAULTFREE_VERSION in .env}
+    container_name: vaultfree
+    restart: unless-stopped
+    # Only the machine itself (and Tailscale Serve, which proxies to 127.0.0.1) can reach it.
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ${VAULTFREE_DATA_DIR:-/srv/vaultfree/data}:/data
+    environment:
+      VAULTFREE_PUBLIC_URL: ${VAULTFREE_PUBLIC_URL:?set VAULTFREE_PUBLIC_URL in .env}
+      VAULTFREE_ALLOW_SIGNUP: "false"
+      VAULTFREE_DEMO: "false"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

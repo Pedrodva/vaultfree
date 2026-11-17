@@ -1,0 +1,20 @@
+# Copy to /opt/vaultfree/node.conf on each server and fill it in.
+# (install-node.sh creates it for you; this file documents every field.)
+
+# This node's role: primary | standby
+ROLE=primary
+
+# The OTHER node's Tailscale name (e.g. vf-standby.tailXXXX.ts.net) or its 100.x address.
+PEER_HOST=
+
+# Public (tailnet) HTTPS address of the OTHER node, used only to check whether it is serving.
+PEER_URL=
+
+# SSH user on the other node. It needs passwordless sudo (the default user on Ubuntu cloud images has it).
+SYNC_USER=ubuntu
+# Private key (created by install-node.sh) used for the sync; its public half must be in the peer's authorized_keys.
+SYNC_KEY=/root/.ssh/vf_sync
+
+DATA_DIR=/srv/vaultfree/data
+BACKUP_DIR=/srv/vaultfree/backups
+KEEP_BACKUPS=14
