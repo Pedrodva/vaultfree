@@ -11,6 +11,14 @@ A small, no-cost way to run VaultFree for a few people: **one primary server, on
  STANDBY  ── VaultFree stopped ───  /srv/vaultfree/data (mirror)     promote.sh starts it when needed
 ```
 
+## Single server (no standby)
+The standby is optional. With one node, run `install-node.sh primary` and ignore `promote.sh`, `failback.sh` and `sync-standby.sh` (the sync job notices that no peer is configured and does nothing). Then the **backups are your only safety net**: the node keeps daily snapshots (14 days) and you should pull one to a machine you own regularly:
+
+```bash
+./deploy/pull-backup.sh USER@SERVER_TAILSCALE_NAME ~/VaultFree-backups ~/.ssh/your_key
+```
+Also on a single node: disable key expiry for the machine in the Tailscale admin console (otherwise it drops off the tailnet after the key expires), close public SSH in the cloud firewall once Tailscale works, and add swap on 1 GB machines.
+
 ## Design decisions
 - **Warm standby, not active-active.** Two servers each accepting writes would diverge (split brain). The standby keeps a mirror and stays stopped; `promote.sh` refuses to start while the primary still answers.
 - **The primary's sync refuses to run while the standby is serving**, so a primary coming back with stale data can never overwrite notes written during the outage.
