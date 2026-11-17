@@ -14,6 +14,8 @@ services:
       VAULTFREE_PUBLIC_URL: ${VAULTFREE_PUBLIC_URL:?set VAULTFREE_PUBLIC_URL in .env}
       VAULTFREE_ALLOW_SIGNUP: "false"
       VAULTFREE_DEMO: "false"
+      # optional: a named Cloudflare tunnel (dashboard-managed) so the app is reachable on your own domain
+      VAULTFREE_TUNNEL_TOKEN: ${VAULTFREE_TUNNEL_TOKEN:-}
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }

@@ -1,6 +1,6 @@
 # Always-on private deployment with a warm standby (free tiers + Tailscale)
 
-A small, no-cost way to run VaultFree for a few people: **one primary server, one standby, reachable only through [Tailscale](https://tailscale.com)** (nothing is exposed to the public internet). Everything here is plain shell and Docker Compose; the app itself needs no changes.
+A small, no-cost way to run VaultFree for a few people: **one primary server, one standby, reachable only through [Tailscale](https://tailscale.com)** (nothing is exposed to the public internet; an optional [Cloudflare Tunnel on your own domain](#optional-your-own-domain-with-a-cloudflare-tunnel) gives a public address without opening ports). Everything here is plain shell and Docker Compose; the app itself needs no changes.
 
 ```
  you / friend (Tailscale installed)
@@ -39,6 +39,16 @@ ssh USER@SERVER 'sudo ~/deploy/install-node.sh primary 0.1.1'   # or: standby
 Then authorise each node's printed sync key on the other (append to `~/.ssh/authorized_keys` of the sync user), and fill `/opt/vaultfree/node.conf` (`PEER_HOST`, `PEER_URL`; see `node.conf.example`). Enable *HTTPS Certificates* in the Tailscale admin console (DNS page) once.
 
 The first account you register becomes the administrator; then create the friend's account with an invite link and keep sign-up closed.
+
+## Optional: your own domain with a Cloudflare Tunnel
+If you own a domain on Cloudflare you can serve the app on it without opening any port and without Tailscale on the clients' side. Tailscale then stays as the private admin path (SSH).
+
+1. In Cloudflare: *Zero Trust* (free plan) → *Networking → Tunnels → Create Tunnel*, copy its token.
+2. Add a **published application route**: subdomain of your choice (never leave it empty, that would be the apex domain), service `http://localhost:3000`. Cloudflare creates the DNS record itself.
+3. On the server, put in `/opt/vaultfree/.env` (mode 600) `VAULTFREE_PUBLIC_URL=https://<your hostname>` and `VAULTFREE_TUNNEL_TOKEN=<token>`, then `docker compose -f docker-compose.prod.yml --env-file .env up -d`. The app starts `cloudflared` itself and restarts it if it drops.
+4. Check from outside: `/api/health` answers, `POST /mcp` without a token answers `401` from VaultFree (not a Cloudflare challenge) and sign-up is still closed.
+
+Notes: do **not** put Cloudflare Access in front of `/mcp` and `/api`, agents cannot type a one-time code (use service tokens if you ever need it). Give agents tokens with the narrowest scope (`read + propose`). The tunnel token grants access to the tunnel, keep `.env` private and use *Refresh token* in the dashboard if it leaks.
 
 ## Failover
 ```bash
