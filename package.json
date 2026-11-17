@@ -1,6 +1,6 @@
 {
   "name": "vaultfree",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "VaultFree — open-source, self-hosted, multi-user knowledge base with an Obsidian-style graph view and first-class AI integration (REST + MCP).",
   "type": "module",
   "license": "MIT",

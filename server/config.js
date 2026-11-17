@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.1.1';
 
 export function loadConfig(env = process.env, overrides = {}) {
   const bool = (v, d) => (v == null ? d : /^(1|true|yes|on)$/i.test(v));

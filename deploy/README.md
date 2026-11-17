@@ -33,7 +33,7 @@ Requirements: Ubuntu/Debian, a user with passwordless `sudo`, Tailscale account.
 # from your computer: copy the folder, then run it on the server
 scp -r deploy USER@SERVER:~/deploy
 ssh USER@SERVER 'sudo tailscale up'            # open the printed link and approve the device
-ssh USER@SERVER 'sudo ~/deploy/install-node.sh primary 0.1.0'   # or: standby
+ssh USER@SERVER 'sudo ~/deploy/install-node.sh primary 0.1.1'   # or: standby
 ```
 
 Then authorise each node's printed sync key on the other (append to `~/.ssh/authorized_keys` of the sync user), and fill `/opt/vaultfree/node.conf` (`PEER_HOST`, `PEER_URL`; see `node.conf.example`). Enable *HTTPS Certificates* in the Tailscale admin console (DNS page) once.

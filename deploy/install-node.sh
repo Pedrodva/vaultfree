@@ -7,7 +7,7 @@
 # Tailscale must already be logged in on this machine ("sudo tailscale up"): it is an account step.
 set -euo pipefail
 
-ROLE="${1:-}"; VERSION="${2:-0.1.0}"
+ROLE="${1:-}"; VERSION="${2:-0.1.1}"
 case "$ROLE" in primary | standby) ;; *) echo "usage: sudo $0 primary|standby [version]" >&2; exit 1 ;; esac
 [ "$(id -u)" = 0 ] || { echo "Run as root (sudo)." >&2; exit 1; }
 
