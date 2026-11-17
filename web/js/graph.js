@@ -7,6 +7,9 @@ const DEFAULTS = {
   territories: false, clusterForce: 0.25, layout: 'force', depth: 1,
 };
 
+// notes with no links settle in a band around the linked part: between these multiples of its radius
+const ORPHAN_RING = [0.7, 1.0];
+
 const PALETTE = ['#a88bfa', '#5eead4', '#f59e0b', '#f472b6', '#60a5fa', '#a3e635', '#fb7185', '#38bdf8', '#e879f9', '#facc15'];
 
 export class GraphView {
@@ -200,6 +203,21 @@ export class GraphView {
     }
     // centre pull
     for (const n of nodes) { n.vx -= n.x * o.centerForce * a * 0.1; n.vy -= n.y * o.centerForce * a * 0.1; }
+    // Notes without any link feel only repulsion, so they used to drift far out and the view shrank to frame
+    // them. Keep them in a loose ring around the linked part of the graph instead.
+    let reach = 0, loose = 0;
+    for (const n of nodes) { if (this.deg.get(n)) reach = Math.max(reach, Math.hypot(n.x, n.y)); else loose++; }
+    if (reach > 0 && loose) {
+      // the ring also needs enough circumference for all of them (about 20px each) so they do not pile up
+      const outer = Math.max(reach * ORPHAN_RING[1] + 40, loose * 3.2), inner = Math.min(reach * ORPHAN_RING[0] + 20, outer - 20);
+      const k = 0.1 * (0.4 + a);
+      for (const n of nodes) {
+        if (this.deg.get(n) || n.fx != null) continue;
+        const d = Math.hypot(n.x, n.y) || 0.01;
+        const err = d > outer ? d - outer : d < inner ? d - inner : 0; // outside the band: pull in; inside: push out
+        if (err) { n.vx -= (n.x / d) * err * k; n.vy -= (n.y / d) * err * k; }
+      }
+    }
     for (const n of nodes) {
       if (n.fx != null) { n.x = n.fx; n.vx = 0; } else { n.vx *= 0.6; n.x += n.vx; }
       if (n.fy != null) { n.y = n.fy; n.vy = 0; } else { n.vy *= 0.6; n.y += n.vy; }

@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/), versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- Graph: notes without any link no longer drift far from the centre (in sparse vaults they ended up 2 to 6 times further out than the linked notes and the view shrank to frame them). They now settle in a loose ring right around the linked part of the graph. Covered by `test/graph-layout.test.js`.
+
 ## [0.1.0] — first public release
 
 ### Added
